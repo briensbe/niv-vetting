@@ -1,0 +1,43 @@
+schema: spec-driven-with-adr
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Rédiger le contenu en français et conserver les titres structurels requis par OpenSpec.
+  specs:
+    - Rédiger le contenu en français et conserver les mots-clés structurels requis par OpenSpec.
+  design:
+    - Rédiger le contenu en français et conserver les titres structurels requis par OpenSpec.
+  adr:
+    - Rédiger le contenu en français et conserver le format ADR requis par le schéma.
+  tasks:
+    - Rédiger les tâches en français en conservant le format de cases à cocher requis par OpenSpec.
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

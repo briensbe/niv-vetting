@@ -568,4 +568,56 @@ describe('App', () => {
     );
     expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(0);
   });
+
+  it('displays the 3rd tab for file comparison and shows differences', async () => {
+    catalogService.load.mockResolvedValue(workspace);
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const tabs = fixture.nativeElement.querySelectorAll('.workspace-tabs button') as NodeListOf<HTMLButtonElement>;
+    expect(tabs).toHaveLength(3);
+    expect(tabs[2].textContent).toContain('Comparer deux fichiers');
+
+    tabs[2].click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.comparator-panel')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#comparator-title')?.textContent).toContain(
+      'Comparateur de règles',
+    );
+
+    const kpiCards = fixture.nativeElement.querySelectorAll('.kpi-card');
+    expect(kpiCards.length).toBeGreaterThanOrEqual(4);
+
+    const ruleCards = fixture.nativeElement.querySelectorAll('.compare-rule-card');
+    expect(ruleCards).toHaveLength(2);
+  });
+
+  it('shows an informative notice when fewer than 2 sources are present in compare view', async () => {
+    const singleSourceWorkspace: VettingCatalogWorkspace = {
+      ...workspace,
+      sources: [workspace.sources[0]],
+    };
+    catalogService.load.mockResolvedValue(singleSourceWorkspace);
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const tabs = fixture.nativeElement.querySelectorAll('.workspace-tabs button') as NodeListOf<HTMLButtonElement>;
+    tabs[2].click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.compare-insufficient-sources')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Comparaison impossible : au moins deux fichiers sont requis',
+    );
+  });
 });
+

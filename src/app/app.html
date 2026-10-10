@@ -402,6 +402,8 @@
                   <button
                     class="grouping-expand"
                     type="button"
+                    [disabled]="isExpanding()"
+                    [attr.aria-busy]="expandingLevel() === index"
                     [attr.title]="
                       (expandedGroupDepth() >= index + 1
                         ? 'Replier ce niveau et les niveaux suivants'
@@ -420,23 +422,31 @@
                       groupingLabel(level)
                     "
                     (click)="toggleGroupExpansion(index)"
-                  >{{ expandedGroupDepth() >= index + 1 ? '−' : '+' }}</button>
+                  >
+                    @if (expandingLevel() === index) {
+                      <span class="expand-spinner" aria-hidden="true"></span>
+                      <span class="visually-hidden">Dépliage en cours…</span>
+                    } @else {
+                      {{ expandedGroupDepth() >= index + 1 ? '−' : '+' }}
+                    }
+                  </button>
                   <button
                     type="button"
-                    [disabled]="index === 0"
+                    [disabled]="index === 0 || isExpanding()"
                     [attr.title]="'Déplacer le niveau ' + groupingLabel(level) + ' vers le haut'"
                     [attr.aria-label]="'Monter ' + groupingLabel(level)"
                     (click)="moveGroupingLevel(index, -1)"
                   >↑</button>
                   <button
                     type="button"
-                    [disabled]="index === groupingLevels().length - 1"
+                    [disabled]="index === groupingLevels().length - 1 || isExpanding()"
                     [attr.title]="'Déplacer le niveau ' + groupingLabel(level) + ' vers le bas'"
                     [attr.aria-label]="'Descendre ' + groupingLabel(level)"
                     (click)="moveGroupingLevel(index, 1)"
                   >↓</button>
                   <button
                     type="button"
+                    [disabled]="isExpanding()"
                     [attr.aria-label]="'Retirer ' + groupingLabel(level)"
                     (click)="removeGroupingLevel(index)"
                   >×</button>

@@ -1603,10 +1603,29 @@ h2 {
 }
 
 .grouping-chip .grouping-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
   border-left: 1px solid #e6e9e1;
   color: var(--orange);
   font-weight: 600;
+}
+
+.expand-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(191, 128, 85, 0.25);
+  border-top-color: var(--orange);
+  border-radius: 50%;
+  animation: expand-spin 0.6s linear infinite;
+}
+
+@keyframes expand-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .grouping-chip button:disabled {

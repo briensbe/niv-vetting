@@ -132,12 +132,14 @@ const catalogService = {
   updateBundledSource: vi.fn(async () => undefined),
 };
 
-function expandAllRules(fixture: ComponentFixture<App>): void {
+async function expandAllRules(fixture: ComponentFixture<App>): Promise<void> {
   const expandButtons = fixture.nativeElement.querySelectorAll(
     '.grouping-chip .grouping-expand',
   ) as NodeListOf<HTMLButtonElement>;
   const lastExpandButton = expandButtons[expandButtons.length - 1];
   lastExpandButton?.click();
+  fixture.detectChanges();
+  await fixture.whenStable();
   fixture.detectChanges();
 }
 
@@ -160,7 +162,7 @@ describe('App', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expandAllRules(fixture);
+    await expandAllRules(fixture);
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Règles de vetting');
@@ -207,6 +209,10 @@ describe('App', () => {
 
     expandButton.click();
     fixture.detectChanges();
+    expect(expandButton.disabled).toBe(true);
+    expect(expandButton.querySelector('.expand-spinner')).not.toBeNull();
+    await fixture.whenStable();
+    fixture.detectChanges();
     expect(compiled.querySelectorAll('.result-group[open]')).toHaveLength(4);
 
     const collapseButton = compiled.querySelector(
@@ -216,6 +222,12 @@ describe('App', () => {
     expect(collapseButton.title).toContain('Replier ce niveau et les niveaux suivants');
     collapseButton.click();
     fixture.detectChanges();
+    expect(collapseButton.disabled).toBe(true);
+    expect(collapseButton.querySelector('.expand-spinner')).not.toBeNull();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(collapseButton.disabled).toBe(false);
+    expect(collapseButton.querySelector('.expand-spinner')).toBeNull();
     expect(compiled.querySelectorAll('.result-group[open]')).toHaveLength(2);
   });
 
@@ -224,7 +236,7 @@ describe('App', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expandAllRules(fixture);
+    await expandAllRules(fixture);
 
     const card = fixture.nativeElement.querySelector('.rule-card') as HTMLElement;
     const disclosure = card.querySelector('.rule-disclosure') as HTMLDetailsElement;
@@ -255,7 +267,7 @@ describe('App', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expandAllRules(fixture);
+    await expandAllRules(fixture);
 
     expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R1');
     expect(fixture.nativeElement.textContent).toContain('Résultats de recherche');
@@ -273,7 +285,7 @@ describe('App', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expandAllRules(fixture);
+    await expandAllRules(fixture);
 
     expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(1);
     expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R2');
@@ -294,7 +306,7 @@ describe('App', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expandAllRules(fixture);
+    await expandAllRules(fixture);
 
     expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R2');
     expect(fixture.nativeElement.textContent).toContain('Virements');
@@ -322,7 +334,7 @@ describe('App', () => {
     select('Filtrer par comportement de profil', 'WARNING');
     await fixture.whenStable();
     fixture.detectChanges();
-    expandAllRules(fixture);
+    await expandAllRules(fixture);
 
     expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(1);
     expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R2');
@@ -426,6 +438,8 @@ describe('App', () => {
       ) as HTMLButtonElement
     ).click();
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(0);
 
@@ -487,7 +501,7 @@ describe('App', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expandAllRules(fixture);
+    await expandAllRules(fixture);
 
     const visibleRuleIds = Array.from(
       fixture.nativeElement.querySelectorAll('.rule-id') as NodeListOf<HTMLElement>,
@@ -538,7 +552,7 @@ describe('App', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expandAllRules(fixture);
+    await expandAllRules(fixture);
     expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(2);
   });
 

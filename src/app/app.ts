@@ -55,6 +55,8 @@ export class App implements OnInit {
   protected readonly groupingLevels = signal<GroupLevel[]>(['file', 'module', 'ruleSet']);
   protected readonly expandedGroupDepth = signal(1);
   protected readonly expandedGroupOverrides = signal<ReadonlyMap<string, boolean>>(new Map());
+  protected readonly expandingLevel = signal<number | null>(null);
+  protected readonly isExpanding = computed(() => this.expandingLevel() !== null);
   protected readonly groupingUpdating = signal(false);
   protected readonly groupingError = signal('');
   protected readonly groupedResults = signal<RuleGroup[]>([]);
@@ -292,11 +294,17 @@ export class App implements OnInit {
   }
 
   protected removeGroupingLevel(index: number): void {
+    if (this.isExpanding()) {
+      return;
+    }
     this.groupingLevels.update((levels) => levels.filter((_, itemIndex) => itemIndex !== index));
     this.syncGroupingSelection();
   }
 
   protected moveGroupingLevel(index: number, direction: -1 | 1): void {
+    if (this.isExpanding()) {
+      return;
+    }
     const target = index + direction;
     const levels = [...this.groupingLevels()];
     if (target < 0 || target >= levels.length) {
@@ -312,11 +320,24 @@ export class App implements OnInit {
   }
 
   protected toggleGroupExpansion(index: number): void {
+    if (this.isExpanding()) {
+      return;
+    }
     const targetDepth = index + 1;
-    this.expandedGroupDepth.update((depth) =>
-      depth >= targetDepth ? targetDepth - 1 : targetDepth,
-    );
-    this.expandedGroupOverrides.set(new Map());
+    this.expandingLevel.set(index);
+
+    const removeTask = this.pendingTasks.add();
+    setTimeout(() => {
+      try {
+        this.expandedGroupDepth.update((depth) =>
+          depth >= targetDepth ? targetDepth - 1 : targetDepth,
+        );
+        this.expandedGroupOverrides.set(new Map());
+      } finally {
+        this.expandingLevel.set(null);
+        removeTask();
+      }
+    }, 0);
   }
 
   protected isGroupExpanded(groupKey: string, depth: number): boolean {

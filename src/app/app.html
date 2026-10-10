@@ -550,19 +550,20 @@
                           </div>
 
                           <div class="rule-profiles">
-                            @if (profileCount(rule.profiles) === 0) {
+                            @let profiles = ruleProfiles(rule.profiles);
+                            @if (profiles.length === 0) {
                               <span class="no-profiles">Aucun profil renseigné.</span>
                             } @else {
                               <div class="profile-list">
-                                @for (entry of profileEntries(rule.profiles); track entry[0]) {
+                                @for (profile of profiles; track profile.name) {
                                   <span class="profile-row">
-                                    <span class="profile-name">{{ entry[0] }}</span>
+                                    <span class="profile-name">{{ profile.name }}</span>
                                     <span
-                                      [class]="'behavior-badge ' + getBehaviorClass(entry[1])"
-                                      [attr.aria-label]="entry[1]"
+                                      [class]="'behavior-badge ' + profile.badgeClass"
+                                      [attr.aria-label]="profile.behavior"
                                     >
                                       <svg viewBox="0 0 16 16" aria-hidden="true">
-                                        @switch (entry[1]) {
+                                        @switch (profile.behavior) {
                                           @case ('ERROR') {
                                             <circle cx="8" cy="8" r="6.25" />
                                             <path d="M8 4.5v4m0 2.5h.01" />
@@ -685,17 +686,18 @@
                               </p>
                             </div>
                             <div class="rule-profiles">
-                              @if (profileCount(rule.profiles) === 0) {
+                              @let profiles = ruleProfiles(rule.profiles);
+                              @if (profiles.length === 0) {
                                 <span class="no-profiles">Aucun profil renseigné.</span>
                               } @else {
                                 <div class="profile-list">
-                                  @for (entry of profileEntries(rule.profiles); track entry[0]) {
+                                  @for (profile of profiles; track profile.name) {
                                     <span class="profile-row">
-                                      <span class="profile-name">{{ entry[0] }}</span>
+                                      <span class="profile-name">{{ profile.name }}</span>
                                       <span
-                                        [class]="'behavior-badge ' + getBehaviorClass(entry[1])"
-                                        [attr.aria-label]="entry[1]"
-                                      >{{ entry[1] }}</span>
+                                        [class]="'behavior-badge ' + profile.badgeClass"
+                                        [attr.aria-label]="profile.behavior"
+                                      >{{ profile.behavior }}</span>
                                     </span>
                                   }
                                 </div>

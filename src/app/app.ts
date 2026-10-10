@@ -13,6 +13,12 @@ interface GroupOption {
   readonly label: string;
 }
 
+export interface RuleProfileEntry {
+  readonly name: string;
+  readonly behavior: string;
+  readonly badgeClass: string;
+}
+
 const groupOptions: readonly GroupOption[] = [
   { id: 'file', label: 'Fichier' },
   { id: 'adherent', label: 'Adhérent' },
@@ -445,16 +451,35 @@ export class App implements OnInit {
     this.selectAllOperations();
   }
 
+  private static readonly numberFormatter = new Intl.NumberFormat('fr-FR');
+  private static readonly profileCache = new WeakMap<
+    Readonly<Record<string, string>>,
+    readonly RuleProfileEntry[]
+  >();
+
   protected formatCount(value: number): string {
-    return new Intl.NumberFormat('fr-FR').format(value);
+    return App.numberFormatter.format(value);
+  }
+
+  protected ruleProfiles(profiles: Readonly<Record<string, string>>): readonly RuleProfileEntry[] {
+    let cached = App.profileCache.get(profiles);
+    if (!cached) {
+      cached = Object.entries(profiles).map(([name, behavior]) => ({
+        name,
+        behavior,
+        badgeClass: this.getBehaviorClass(behavior),
+      }));
+      App.profileCache.set(profiles, cached);
+    }
+    return cached;
   }
 
   protected profileEntries(profiles: Readonly<Record<string, string>>): [string, string][] {
-    return Object.entries(profiles);
+    return this.ruleProfiles(profiles).map((p) => [p.name, p.behavior]);
   }
 
   protected profileCount(profiles: Readonly<Record<string, string>>): number {
-    return Object.keys(profiles).length;
+    return this.ruleProfiles(profiles).length;
   }
 
   protected getBehaviorClass(value: string): string {

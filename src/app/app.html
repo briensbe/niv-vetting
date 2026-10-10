@@ -479,8 +479,14 @@
             </span>
           </div>
 
-          <section class="results-panel" aria-label="Résultats">
-            @if (displayedRules().length === 0) {
+          <section class="results-panel" aria-label="Résultats" [attr.aria-busy]="groupingUpdating()">
+            @if (groupingUpdating()) {
+              <p class="manager-message grouping-update" role="status">Actualisation des regroupements…</p>
+            }
+            @if (groupingError()) {
+              <p class="manager-error grouping-error" role="alert">{{ groupingError() }}</p>
+            }
+            @if (displayedRules().length === 0 && !groupingUpdating() && !groupingError()) {
               <div class="empty-state">
                 <span class="empty-glyph" aria-hidden="true">⌕</span>
                 <strong>Aucune règle trouvée</strong>
@@ -494,12 +500,14 @@
                 <ng-template #renderGroups let-groups let-depth="depth">
                   <div class="group-tree">
                     @for (group of groups; track group.key) {
-                      <details class="result-group" [open]="depth < expandedGroupDepth()">
+                      <details class="result-group" [open]="isGroupExpanded(group.key, depth)"
+                        (toggle)="onGroupToggle(group.key, $event)">
                         <summary>
                           <span class="group-depth">{{ depth + 1 }}</span>
                           <span class="group-label">{{ group.label }}</span>
                           <span class="group-count">{{ formatCount(group.count) }}</span>
                         </summary>
+                        @if (isGroupExpanded(group.key, depth)) {
                         @if (group.children.length > 0) {
                           <ng-container
                             [ngTemplateOutlet]="renderGroups"
@@ -634,6 +642,7 @@
                   </article>
                 }
                           </div>
+                        }
                         }
                       </details>
                     }

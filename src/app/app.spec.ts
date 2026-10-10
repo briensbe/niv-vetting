@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { App } from './app';
 import { VettingCatalogService, VettingCatalogWorkspace } from './vetting-catalog.service';
 import { VettingCatalog } from './vetting-catalog';
@@ -132,6 +132,14 @@ const catalogService = {
   updateBundledSource: vi.fn(async () => undefined),
 };
 
+function expandAllRules(fixture: ComponentFixture<App>): void {
+  const expandButton = fixture.nativeElement.querySelector(
+    '[aria-label^="Déplier les groupes jusqu’au niveau 2"]',
+  ) as HTMLButtonElement | null;
+  expandButton?.click();
+  fixture.detectChanges();
+}
+
 describe('App', () => {
   beforeEach(async () => {
     catalogService.load.mockResolvedValue(workspace);
@@ -151,6 +159,7 @@ describe('App', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
+    expandAllRules(fixture);
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Règles de vetting');
@@ -214,6 +223,7 @@ describe('App', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
+    expandAllRules(fixture);
 
     const card = fixture.nativeElement.querySelector('.rule-card') as HTMLElement;
     const disclosure = card.querySelector('.rule-disclosure') as HTMLDetailsElement;
@@ -242,6 +252,9 @@ describe('App', () => {
     search.value = 'regle de demonstration';
     search.dispatchEvent(new Event('input'));
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expandAllRules(fixture);
 
     expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R1');
     expect(fixture.nativeElement.textContent).toContain('Résultats de recherche');
@@ -257,6 +270,9 @@ describe('App', () => {
     search.value = 'expert';
     search.dispatchEvent(new Event('input'));
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expandAllRules(fixture);
 
     expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(1);
     expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R2');
@@ -275,6 +291,9 @@ describe('App', () => {
     search.value = 'R2';
     search.dispatchEvent(new Event('input'));
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expandAllRules(fixture);
 
     expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R2');
     expect(fixture.nativeElement.textContent).toContain('Virements');
@@ -300,6 +319,9 @@ describe('App', () => {
     select('Filtrer par état actif', 'inactive');
     select('Filtrer par profil', 'USER');
     select('Filtrer par comportement de profil', 'WARNING');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expandAllRules(fixture);
 
     expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(1);
     expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R2');
@@ -351,9 +373,113 @@ describe('App', () => {
     const reorderedGroupingLabels = fixture.nativeElement.querySelectorAll(
       '.grouping-chip > span:nth-child(2)',
     ) as NodeListOf<HTMLElement>;
-    expect(
-      Array.from(reorderedGroupingLabels, (item) => item.textContent?.trim()),
-    ).toEqual(['Module', 'Fichier', 'Rule-set']);
+    expect(Array.from(reorderedGroupingLabels, (item) => item.textContent?.trim())).toEqual([
+      'Module',
+      'Fichier',
+      'Rule-set',
+    ]);
+    expect(fixture.nativeElement.querySelector('.grouping-update')?.textContent).toContain(
+      'Actualisation des regroupements',
+    );
+    const rootGroupLabels = () =>
+      Array.from(fixture.nativeElement.querySelectorAll('.result-group'), (group: Element) => ({
+        depth: group.querySelector('.group-depth')?.textContent?.trim(),
+        label: group.querySelector('.group-label')?.textContent?.trim(),
+      }))
+        .filter((group) => group.depth === '1')
+        .map((group) => group.label);
+    expect(rootGroupLabels()).toContain('Paiements');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.grouping-update')).toBeNull();
+
+    (
+      fixture.nativeElement.querySelector('[aria-label="Monter Rule-set"]') as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    (
+      fixture.nativeElement.querySelector('[aria-label="Monter Rule-set"]') as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    expect(rootGroupLabels()).toContain('Paiements');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(rootGroupLabels()).toEqual(['common', 'wire']);
+  });
+
+  it('renders rules only after their collapsed group is expanded', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(0);
+
+    const collapsedGroup = Array.from(fixture.nativeElement.querySelectorAll('.result-group')).find(
+      (group) => !(group as HTMLDetailsElement).open,
+    ) as HTMLDetailsElement;
+    expect(collapsedGroup).toBeDefined();
+    collapsedGroup.open = true;
+    collapsedGroup.dispatchEvent(new Event('toggle'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(collapsedGroup.open).toBe(true);
+    expect(fixture.nativeElement.querySelectorAll('.rule-card').length).toBeGreaterThan(0);
+  });
+
+  it('keeps the last published tree and reports grouping errors', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.result-group')).not.toHaveLength(0);
+
+    const groupingLevels = (
+      fixture.componentInstance as unknown as {
+        groupingLevels: { set: (levels: string[]) => void };
+      }
+    ).groupingLevels;
+    groupingLevels.set(['invalid']);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.grouping-update')).not.toBeNull();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[role="alert"]')?.textContent).toContain(
+      'Niveau de regroupement inconnu',
+    );
+    expect(fixture.nativeElement.querySelectorAll('.result-group')).not.toHaveLength(0);
+    expect(fixture.nativeElement.querySelector('.results-panel')?.getAttribute('aria-busy')).toBe(
+      'false',
+    );
+  });
+
+  it('publishes results for the latest rule filters after rapid changes', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const search = fixture.nativeElement.querySelector(
+      'input[placeholder^="Rechercher un identifiant"]',
+    ) as HTMLInputElement;
+    search.value = 'R2';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    search.value = 'R1';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expandAllRules(fixture);
+
+    const visibleRuleIds = Array.from(
+      fixture.nativeElement.querySelectorAll('.rule-id') as NodeListOf<HTMLElement>,
+      (element) => element.textContent?.trim(),
+    );
+    expect(visibleRuleIds).toEqual(['R1']);
   });
 
   it('shows local catalog management and the metadata inferred from filenames', async () => {
@@ -373,7 +499,9 @@ describe('App', () => {
 
     expect(fixture.nativeElement.textContent).toContain('lcl_expert_vetting_rules.xml');
     expect(fixture.nativeElement.textContent).toContain('Stockage local');
-    const textInputs = fixture.nativeElement.querySelectorAll('.source-metadata input[type="text"]');
+    const textInputs = fixture.nativeElement.querySelectorAll(
+      '.source-metadata input[type="text"]',
+    );
     expect((textInputs[2] as HTMLInputElement).value).toBe('lcl');
     expect((textInputs[3] as HTMLInputElement).value).toBe('expert');
   });
@@ -388,10 +516,15 @@ describe('App', () => {
     search.value = 'aucune-correspondance';
     search.dispatchEvent(new Event('input'));
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Aucune règle trouvée');
 
     (fixture.nativeElement.querySelector('.text-button') as HTMLButtonElement).click();
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expandAllRules(fixture);
     expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(2);
   });
 

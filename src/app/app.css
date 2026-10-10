@@ -1515,7 +1515,9 @@ h2 {
 }
 
 .manager-message,
-.manager-error {
+.manager-error,
+.grouping-update,
+.grouping-error {
   margin: 0 0 13px;
   padding: 10px 12px;
   font-size: 12px;
@@ -1523,13 +1525,15 @@ h2 {
   white-space: pre-wrap;
 }
 
-.manager-message {
+.manager-message,
+.grouping-update {
   border-left: 3px solid #78967e;
   background: #edf3ec;
   color: #365d48;
 }
 
-.manager-error {
+.manager-error,
+.grouping-error {
   border-left: 3px solid #bd6f56;
   background: #fbefea;
   color: #8c4436;

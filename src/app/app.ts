@@ -1,31 +1,16 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import {
-  VettingCatalogService,
-  VettingCatalogWorkspace,
-} from './vetting-catalog.service';
-import {
-  RuleFamily,
-  VettingOperation,
-  VettingRule,
-} from './vetting-catalog';
+import { Component, computed, effect, inject, OnInit, PendingTasks, signal } from '@angular/core';
+import { VettingCatalogService, VettingCatalogWorkspace } from './vetting-catalog.service';
+import { RuleFamily, VettingOperation, VettingRule } from './vetting-catalog';
 import { StoredVettingSource } from './vetting-catalog-storage';
+import { createRuleGroups, GroupLevel, RuleGroup } from './rule-grouping';
 
-type GroupLevel = 'file' | 'adherent' | 'offer' | 'module' | 'ruleSet';
 type WorkspaceView = 'catalog' | 'manage';
 
 interface GroupOption {
   readonly id: GroupLevel;
   readonly label: string;
-}
-
-interface RuleGroup {
-  readonly key: string;
-  readonly label: string;
-  readonly count: number;
-  readonly children: readonly RuleGroup[];
-  readonly rules: readonly VettingRule[];
 }
 
 const groupOptions: readonly GroupOption[] = [
@@ -44,6 +29,7 @@ const groupOptions: readonly GroupOption[] = [
 })
 export class App implements OnInit {
   private readonly catalogService = inject(VettingCatalogService);
+  private readonly pendingTasks = inject(PendingTasks);
 
   protected readonly loadingState = signal<'loading' | 'ready' | 'error'>('loading');
   protected readonly workspace = signal<VettingCatalogWorkspace | null>(null);
@@ -62,6 +48,11 @@ export class App implements OnInit {
   protected readonly behaviorFilter = signal('all');
   protected readonly groupingLevels = signal<GroupLevel[]>(['module', 'ruleSet']);
   protected readonly expandedGroupDepth = signal(1);
+  protected readonly expandedGroupOverrides = signal<ReadonlyMap<string, boolean>>(new Map());
+  protected readonly groupingUpdating = signal(false);
+  protected readonly groupingError = signal('');
+  protected readonly groupedResults = signal<RuleGroup[]>([]);
+  private groupingRequestId = 0;
   protected readonly availableGroupingLevels = computed(() =>
     groupOptions.filter((option) => !this.groupingLevels().includes(option.id)),
   );
@@ -178,9 +169,6 @@ export class App implements OnInit {
       return behavior === 'all' || rule.profiles[profile] === behavior;
     });
   });
-  protected readonly groupedResults = computed(() =>
-    this.createGroups(this.displayedRules(), this.groupingLevels()),
-  );
   protected readonly heading = computed(() => {
     if (this.query().trim()) {
       return 'Résultats de recherche';
@@ -191,6 +179,51 @@ export class App implements OnInit {
 
   ngOnInit(): void {
     void this.refreshWorkspace(true);
+  }
+
+  constructor() {
+    effect((onCleanup) => {
+      const rules = this.displayedRules();
+      const levels = this.groupingLevels();
+      const requestId = ++this.groupingRequestId;
+
+      this.groupingUpdating.set(true);
+      this.groupingError.set('');
+
+      const removePendingTask = this.pendingTasks.add();
+      let pending = true;
+      const finishPendingTask = (): void => {
+        if (pending) {
+          pending = false;
+          removePendingTask();
+        }
+      };
+      const timer = setTimeout(() => {
+        try {
+          if (requestId === this.groupingRequestId) {
+            this.groupedResults.set(createRuleGroups(rules, levels));
+            this.expandedGroupOverrides.set(new Map());
+            this.groupingUpdating.set(false);
+          }
+        } catch (error) {
+          if (requestId === this.groupingRequestId) {
+            this.groupingError.set(
+              error instanceof Error
+                ? `Le regroupement n’a pas pu être actualisé : ${error.message}`
+                : 'Le regroupement n’a pas pu être actualisé.',
+            );
+            this.groupingUpdating.set(false);
+          }
+        } finally {
+          finishPendingTask();
+        }
+      }, 0);
+
+      onCleanup(() => {
+        clearTimeout(timer);
+        finishPendingTask();
+      });
+    });
   }
 
   protected selectOperation(operation: VettingOperation): void {
@@ -277,6 +310,20 @@ export class App implements OnInit {
     this.expandedGroupDepth.update((depth) =>
       depth >= targetDepth ? targetDepth - 1 : targetDepth,
     );
+    this.expandedGroupOverrides.set(new Map());
+  }
+
+  protected isGroupExpanded(groupKey: string, depth: number): boolean {
+    return this.expandedGroupOverrides().get(groupKey) ?? depth < this.expandedGroupDepth();
+  }
+
+  protected onGroupToggle(groupKey: string, event: Event): void {
+    const isOpen = (event.currentTarget as HTMLDetailsElement).open;
+    this.expandedGroupOverrides.update((overrides) => {
+      const next = new Map(overrides);
+      next.set(groupKey, isOpen);
+      return next;
+    });
   }
 
   protected async onXmlFilesChange(event: Event): Promise<void> {
@@ -428,69 +475,6 @@ export class App implements OnInit {
     const next = this.availableGroupingLevels()[0];
     if (next) {
       this.newGroupingLevel.set(next.id);
-    }
-  }
-
-  private createGroups(rules: readonly VettingRule[], levels: readonly GroupLevel[]): RuleGroup[] {
-    const groupAtLevel = (
-      members: readonly VettingRule[],
-      depth: number,
-      parentKey: string,
-    ): RuleGroup[] => {
-      const level = levels[depth];
-      const groups = new Map<string, { label: string; rules: VettingRule[] }>();
-      for (const rule of members) {
-        const value = this.groupValue(rule, level);
-        const key = value.key;
-        const existing = groups.get(key);
-        if (existing) {
-          existing.rules.push(rule);
-        } else {
-          groups.set(key, { label: value.label, rules: [rule] });
-        }
-      }
-
-      return [...groups.entries()].map(([key, group]) => {
-        const fullKey = `${parentKey}/${key}`;
-        const children: RuleGroup[] =
-          depth + 1 < levels.length ? groupAtLevel(group.rules, depth + 1, fullKey) : [];
-        return {
-          key: fullKey,
-          label: group.label,
-          count: group.rules.length,
-          children,
-          rules: children.length === 0 ? group.rules : [],
-        };
-      });
-    };
-
-    return levels.length === 0 ? [] : groupAtLevel(rules, 0, 'root');
-  }
-
-  private groupValue(rule: VettingRule, level: GroupLevel): { key: string; label: string } {
-    switch (level) {
-      case 'file':
-        return {
-          key: rule.sourceId ?? rule.sourceName ?? 'local',
-          label: rule.sourceName || 'Fichier sans nom',
-        };
-      case 'adherent':
-        return {
-          key: rule.adherent || 'adherent-missing',
-          label: rule.adherent || 'Adhérent non renseigné',
-        };
-      case 'offer':
-        return {
-          key: rule.offer || 'offer-missing',
-          label: rule.offer || 'Offre non renseignée',
-        };
-      case 'module':
-        return { key: rule.moduleId, label: rule.moduleLabel };
-      case 'ruleSet':
-        return {
-          key: `${rule.familyId}::${rule.packageName}`,
-          label: rule.familyLabel,
-        };
     }
   }
 

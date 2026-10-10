@@ -46,7 +46,7 @@ export class App implements OnInit {
   protected readonly activeFilter = signal<'all' | 'active' | 'inactive'>('all');
   protected readonly profileFilter = signal('all');
   protected readonly behaviorFilter = signal('all');
-  protected readonly groupingLevels = signal<GroupLevel[]>(['module', 'ruleSet']);
+  protected readonly groupingLevels = signal<GroupLevel[]>(['file', 'module', 'ruleSet']);
   protected readonly expandedGroupDepth = signal(1);
   protected readonly expandedGroupOverrides = signal<ReadonlyMap<string, boolean>>(new Map());
   protected readonly groupingUpdating = signal(false);
@@ -56,7 +56,7 @@ export class App implements OnInit {
   protected readonly availableGroupingLevels = computed(() =>
     groupOptions.filter((option) => !this.groupingLevels().includes(option.id)),
   );
-  protected readonly newGroupingLevel = signal<GroupLevel>('file');
+  protected readonly newGroupingLevel = signal<GroupLevel>('adherent');
   protected readonly operations = computed(() => this.catalog()?.operations ?? []);
   protected readonly sources = computed(() => this.workspace()?.sources ?? []);
   protected readonly bundledUpdateAvailable = computed(

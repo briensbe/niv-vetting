@@ -133,10 +133,11 @@ const catalogService = {
 };
 
 function expandAllRules(fixture: ComponentFixture<App>): void {
-  const expandButton = fixture.nativeElement.querySelector(
-    '[aria-label^="Déplier les groupes jusqu’au niveau 2"]',
-  ) as HTMLButtonElement | null;
-  expandButton?.click();
+  const expandButtons = fixture.nativeElement.querySelectorAll(
+    '.grouping-chip .grouping-expand',
+  ) as NodeListOf<HTMLButtonElement>;
+  const lastExpandButton = expandButtons[expandButtons.length - 1];
+  lastExpandButton?.click();
   fixture.detectChanges();
 }
 
@@ -197,7 +198,7 @@ describe('App', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     const expandButton = compiled.querySelector(
-      'button[aria-label="Déplier les groupes jusqu’au niveau 2 : Rule-set"]',
+      'button[aria-label="Déplier les groupes jusqu’au niveau 2 : Module"]',
     ) as HTMLButtonElement;
     expect(expandButton).not.toBeNull();
     expect(expandButton.textContent?.trim()).toBe('+');
@@ -209,7 +210,7 @@ describe('App', () => {
     expect(compiled.querySelectorAll('.result-group[open]')).toHaveLength(4);
 
     const collapseButton = compiled.querySelector(
-      'button[aria-label="Replier ce niveau et les niveaux suivants, niveau 2 : Rule-set"]',
+      'button[aria-label="Replier ce niveau et les niveaux suivants, niveau 2 : Module"]',
     ) as HTMLButtonElement;
     expect(collapseButton.textContent?.trim()).toBe('−');
     expect(collapseButton.title).toContain('Replier ce niveau et les niveaux suivants');
@@ -353,7 +354,7 @@ describe('App', () => {
     const grouping = fixture.nativeElement.querySelector(
       '[aria-label="Nouveau niveau de regroupement"]',
     ) as HTMLSelectElement;
-    grouping.value = 'file';
+    grouping.value = 'adherent';
     grouping.dispatchEvent(new Event('change'));
     fixture.detectChanges();
     (fixture.nativeElement.querySelector('.grouping-add button') as HTMLButtonElement).click();
@@ -363,19 +364,21 @@ describe('App', () => {
       '.grouping-chip > span:nth-child(2)',
     ) as NodeListOf<HTMLElement>;
     expect(Array.from(groupingLabels, (item) => item.textContent?.trim())).toEqual([
+      'Fichier',
       'Module',
       'Rule-set',
-      'Fichier',
+      'Adhérent',
     ]);
 
-    (fixture.nativeElement.querySelector('[aria-label="Monter Fichier"]') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('[aria-label="Monter Adhérent"]') as HTMLButtonElement).click();
     fixture.detectChanges();
     const reorderedGroupingLabels = fixture.nativeElement.querySelectorAll(
       '.grouping-chip > span:nth-child(2)',
     ) as NodeListOf<HTMLElement>;
     expect(Array.from(reorderedGroupingLabels, (item) => item.textContent?.trim())).toEqual([
-      'Module',
       'Fichier',
+      'Module',
+      'Adhérent',
       'Rule-set',
     ]);
     expect(fixture.nativeElement.querySelector('.grouping-update')?.textContent).toContain(
@@ -388,7 +391,7 @@ describe('App', () => {
       }))
         .filter((group) => group.depth === '1')
         .map((group) => group.label);
-    expect(rootGroupLabels()).toContain('Paiements');
+    expect(rootGroupLabels()).toContain('crca_initial_vetting_rules.xml');
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.grouping-update')).toBeNull();
@@ -401,7 +404,11 @@ describe('App', () => {
       fixture.nativeElement.querySelector('[aria-label="Monter Rule-set"]') as HTMLButtonElement
     ).click();
     fixture.detectChanges();
-    expect(rootGroupLabels()).toContain('Paiements');
+    (
+      fixture.nativeElement.querySelector('[aria-label="Monter Rule-set"]') as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    expect(rootGroupLabels()).toContain('crca_initial_vetting_rules.xml');
     await fixture.whenStable();
     fixture.detectChanges();
     expect(rootGroupLabels()).toEqual(['common', 'wire']);
@@ -411,6 +418,13 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     await fixture.whenStable();
+    fixture.detectChanges();
+
+    (
+      fixture.nativeElement.querySelector(
+        'button[aria-label="Déplier les groupes jusqu’au niveau 2 : Module"]',
+      ) as HTMLButtonElement
+    ).click();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(0);

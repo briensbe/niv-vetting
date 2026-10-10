@@ -180,6 +180,35 @@ describe('App', () => {
     expect(compiled.querySelector('.rule-card .rule-description .field-label')).toBeNull();
   });
 
+  it('expands or collapses all groups through each selected level', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const expandButton = compiled.querySelector(
+      'button[aria-label="Déplier les groupes jusqu’au niveau 2 : Rule-set"]',
+    ) as HTMLButtonElement;
+    expect(expandButton).not.toBeNull();
+    expect(expandButton.textContent?.trim()).toBe('+');
+    expect(expandButton.title).toContain('Déplier les groupes jusqu’à ce niveau');
+    expect(compiled.querySelectorAll('.result-group[open]')).toHaveLength(2);
+
+    expandButton.click();
+    fixture.detectChanges();
+    expect(compiled.querySelectorAll('.result-group[open]')).toHaveLength(4);
+
+    const collapseButton = compiled.querySelector(
+      'button[aria-label="Replier ce niveau et les niveaux suivants, niveau 2 : Rule-set"]',
+    ) as HTMLButtonElement;
+    expect(collapseButton.textContent?.trim()).toBe('−');
+    expect(collapseButton.title).toContain('Replier ce niveau et les niveaux suivants');
+    collapseButton.click();
+    fixture.detectChanges();
+    expect(compiled.querySelectorAll('.result-group[open]')).toHaveLength(2);
+  });
+
   it('keeps property-file message variants in a second-level disclosure', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();

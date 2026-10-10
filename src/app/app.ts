@@ -61,6 +61,7 @@ export class App implements OnInit {
   protected readonly profileFilter = signal('all');
   protected readonly behaviorFilter = signal('all');
   protected readonly groupingLevels = signal<GroupLevel[]>(['module', 'ruleSet']);
+  protected readonly expandedGroupDepth = signal(1);
   protected readonly availableGroupingLevels = computed(() =>
     groupOptions.filter((option) => !this.groupingLevels().includes(option.id)),
   );
@@ -269,6 +270,13 @@ export class App implements OnInit {
 
   protected groupingLabel(level: GroupLevel): string {
     return groupOptions.find((option) => option.id === level)?.label ?? level;
+  }
+
+  protected toggleGroupExpansion(index: number): void {
+    const targetDepth = index + 1;
+    this.expandedGroupDepth.update((depth) =>
+      depth >= targetDepth ? targetDepth - 1 : targetDepth,
+    );
   }
 
   protected async onXmlFilesChange(event: Event): Promise<void> {

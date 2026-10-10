@@ -400,14 +400,38 @@
                   <span class="grouping-order">{{ index + 1 }}</span>
                   <span>{{ groupingLabel(level) }}</span>
                   <button
+                    class="grouping-expand"
+                    type="button"
+                    [attr.title]="
+                      (expandedGroupDepth() >= index + 1
+                        ? 'Replier ce niveau et les niveaux suivants'
+                        : 'Déplier les groupes jusqu’à ce niveau') +
+                      ' — niveau ' +
+                      (index + 1) +
+                      ' : ' +
+                      groupingLabel(level)
+                    "
+                    [attr.aria-label]="
+                      (expandedGroupDepth() >= index + 1
+                        ? 'Replier ce niveau et les niveaux suivants, niveau '
+                        : 'Déplier les groupes jusqu’au niveau ') +
+                      (index + 1) +
+                      ' : ' +
+                      groupingLabel(level)
+                    "
+                    (click)="toggleGroupExpansion(index)"
+                  >{{ expandedGroupDepth() >= index + 1 ? '−' : '+' }}</button>
+                  <button
                     type="button"
                     [disabled]="index === 0"
+                    [attr.title]="'Déplacer le niveau ' + groupingLabel(level) + ' vers le haut'"
                     [attr.aria-label]="'Monter ' + groupingLabel(level)"
                     (click)="moveGroupingLevel(index, -1)"
                   >↑</button>
                   <button
                     type="button"
                     [disabled]="index === groupingLevels().length - 1"
+                    [attr.title]="'Déplacer le niveau ' + groupingLabel(level) + ' vers le bas'"
                     [attr.aria-label]="'Descendre ' + groupingLabel(level)"
                     (click)="moveGroupingLevel(index, 1)"
                   >↓</button>
@@ -470,7 +494,7 @@
                 <ng-template #renderGroups let-groups let-depth="depth">
                   <div class="group-tree">
                     @for (group of groups; track group.key) {
-                      <details class="result-group" [open]="depth === 0">
+                      <details class="result-group" [open]="depth < expandedGroupDepth()">
                         <summary>
                           <span class="group-depth">{{ depth + 1 }}</span>
                           <span class="group-label">{{ group.label }}</span>

@@ -37,3 +37,14 @@
 ## Gestion du Versioning (.gitignore)
 - **Règle :** Ne jamais commiter de fichiers de logs (`*.log`), de dossiers de compilation (`dist/`, `.angular/`), de fichiers de configuration de secrets (`.env*`, `environment.ts`) ou de caches temporaires Supabase (`supabase/.temp/`).
 - **Action :** Initialiser systématiquement le projet avec le `.gitignore` standard incluant la protection des environnements et l'isolation des caches d'agents IA (`.claude/cache/`, `.bolt`, etc.).
+
+## Règles de recherche et d'exploration de fichiers
+- Utilise systématiquement `rg` (ripgrep) pour rechercher du texte ou lister les fichiers d'un dossier.
+- N'utilise JAMAIS les cmdlets PowerShell d'exploration ou de recherche (`Get-ChildItem`, `Select-String`, `dir`, `ls`, `gci`).
+- Syntaxes courantes :
+  - Lister les fichiers d'un dossier : `rg --files <chemin>`
+  - Chercher du texte dans les fichiers : `rg "<motif>" <chemin>`
+  - Filtrer par extensions de fichier : `rg -g "*.{ts,html}" "<motif>" <chemin>`
+- Privilégie systématiquement les commandes atomiques SANS pipe (`|`), sans redirection ni chaînage (`&&`, `;`) pour respecter l'Allowlist du terminal.
+- Pour filtrer les noms de fichiers avec `rg` : utilise `-g` (ex. `rg --files -g "*profile*" src/` et PAS `rg --files ... | rg ...`).
+- Si `rg` n'est pas disponible, demande confirmation avant d'utiliser une alternative.

@@ -244,11 +244,11 @@
             </div>
           </header>
 
-          @if (item.label && item.label !== item.ruleId) {
-            <p class="compare-rule-label">{{ item.label }}</p>
-          }
           @if (item.description) {
             <p class="compare-rule-description">{{ item.description }}</p>
+          }
+          @if (item.label && item.label !== item.ruleId) {
+            <p class="compare-rule-label">{{ item.label }}</p>
           }
 
           @if (item.profileDiffs.length > 0) {

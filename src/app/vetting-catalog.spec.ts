@@ -27,13 +27,17 @@ describe('parseJavaProperties', () => {
     expect(properties.get('key=part')).toBe('value:here');
   });
 
-  it('decodes numeric HTML character references in property values', () => {
+  it('decodes named and numeric HTML character references in property values', () => {
     const properties = parseJavaProperties(
-      'rule.description=ACCOUNT_STATUS == 4 &#124;&#124; ACCOUNT_STATUS == 5\nrule.message=first&#13;second',
+      'rule.description=ACCOUNT_STATUS == 4 &#124;&#124; ACCOUNT_STATUS == 5\nrule.message=first&#13;second\nAPIMS01=Solde esp&egrave;ces insuffisant.\nAPIMS02=Op&eacute;ration impossible suite &agrave; un incident technique (&euro;).',
     );
 
     expect(properties.get('rule.description')).toBe('ACCOUNT_STATUS == 4 || ACCOUNT_STATUS == 5');
     expect(properties.get('rule.message')).toBe('first\rsecond');
+    expect(properties.get('APIMS01')).toBe('Solde espèces insuffisant.');
+    expect(properties.get('APIMS02')).toBe(
+      "Opération impossible suite à un incident technique (€).",
+    );
   });
 
   it('rejects malformed Unicode escapes', () => {

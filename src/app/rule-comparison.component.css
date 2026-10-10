@@ -481,14 +481,15 @@
   text-transform: uppercase;
 }
 
-.compare-rule-label {
+.compare-rule-description {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
+  line-height: 1.5;
 }
 
-.compare-rule-description {
+.compare-rule-label {
   margin: 0;
   font-size: 13px;
   color: var(--ink-soft);

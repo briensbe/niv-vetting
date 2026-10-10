@@ -213,21 +213,107 @@ function unescapeProperty(value: string, lineNumber: number): string {
   return result;
 }
 
-function decodeNumericHtmlEntities(value: string): string {
-  return value.replace(/&#(x[\da-f]+|\d+);/gi, (entity, encodedCode: string) => {
-    const codePoint =
-      encodedCode[0].toLowerCase() === 'x'
-        ? Number.parseInt(encodedCode.slice(1), 16)
-        : Number.parseInt(encodedCode, 10);
-    if (
-      !Number.isInteger(codePoint) ||
-      codePoint < 0 ||
-      codePoint > 0x10ffff ||
-      (codePoint >= 0xd800 && codePoint <= 0xdfff)
-    ) {
-      return entity;
+const htmlNamedEntities: Readonly<Record<string, string>> = {
+  agrave: 'à',
+  aacute: 'á',
+  acirc: 'â',
+  atilde: 'ã',
+  auml: 'ä',
+  aring: 'å',
+  aelig: 'æ',
+  ccedil: 'ç',
+  egrave: 'è',
+  eacute: 'é',
+  ecirc: 'ê',
+  euml: 'ë',
+  igrave: 'ì',
+  iacute: 'í',
+  icirc: 'î',
+  iuml: 'ï',
+  ntilde: 'ñ',
+  ograve: 'ò',
+  oacute: 'ó',
+  ocirc: 'ô',
+  otilde: 'õ',
+  ouml: 'ö',
+  oslash: 'ø',
+  ugrave: 'ù',
+  uacute: 'ú',
+  ucirc: 'û',
+  uuml: 'ü',
+  yacute: 'ý',
+  yuml: 'ÿ',
+  Agrave: 'À',
+  Aacute: 'Á',
+  Acirc: 'Â',
+  Atilde: 'Ã',
+  Auml: 'Ä',
+  Aring: 'Å',
+  AElig: 'Æ',
+  Ccedil: 'Ç',
+  Egrave: 'È',
+  Eacute: 'É',
+  Ecirc: 'Ê',
+  Euml: 'Ë',
+  Igrave: 'Ì',
+  Iacute: 'Í',
+  Icirc: 'Î',
+  Iuml: 'Ï',
+  Ntilde: 'Ñ',
+  Ograve: 'Ò',
+  Oacute: 'Ó',
+  Ocirc: 'Ô',
+  Otilde: 'Õ',
+  Ouml: 'Ö',
+  Oslash: 'Ø',
+  Ugrave: 'Ù',
+  Uacute: 'Ú',
+  Ucirc: 'Û',
+  Uuml: 'Ü',
+  Yacute: 'Ý',
+  oelig: 'œ',
+  OElig: 'Œ',
+  euro: '€',
+  nbsp: ' ',
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  laquo: '«',
+  raquo: '»',
+  copy: '©',
+  reg: '®',
+  trade: '™',
+  deg: '°',
+  plusmn: '±',
+  sect: '§',
+  para: '¶',
+  bull: '•',
+  hellip: '…',
+};
+
+function decodeHtmlEntities(value: string): string {
+  return value.replace(/&(#(x[\da-f]+|\d+)|[a-z\d]+);/gi, (entity, captured: string) => {
+    if (captured.startsWith('#')) {
+      const encodedCode = captured.slice(1);
+      const codePoint =
+        encodedCode[0].toLowerCase() === 'x'
+          ? Number.parseInt(encodedCode.slice(1), 16)
+          : Number.parseInt(encodedCode, 10);
+      if (
+        !Number.isInteger(codePoint) ||
+        codePoint < 0 ||
+        codePoint > 0x10ffff ||
+        (codePoint >= 0xd800 && codePoint <= 0xdfff)
+      ) {
+        return entity;
+      }
+      return String.fromCodePoint(codePoint);
     }
-    return String.fromCodePoint(codePoint);
+
+    const named = htmlNamedEntities[captured];
+    return named ?? entity;
   });
 }
 
@@ -269,7 +355,7 @@ function parsePropertyLine(line: string, lineNumber: number): [string, string] |
 
   return [
     unescapeProperty(rawKey, lineNumber),
-    decodeNumericHtmlEntities(unescapeProperty(line.slice(valueStart), lineNumber)),
+    decodeHtmlEntities(unescapeProperty(line.slice(valueStart), lineNumber)),
   ];
 }
 

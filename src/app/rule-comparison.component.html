@@ -1,0 +1,319 @@
+<section class="comparator-panel" aria-labelledby="comparator-title">
+  <div class="comparator-heading">
+    <div>
+      <p class="eyebrow small"><span class="eyebrow-line"></span> ANALYSE DIFFÉRENTIELLE</p>
+      <h2 id="comparator-title">Comparateur de règles</h2>
+      <p class="result-context">
+        Confrontez deux fichiers de règles pour identifier instantanément les écarts d'activation et de profil.
+      </p>
+    </div>
+    @if (sources().length >= 2) {
+      <div class="compare-source-pickers" aria-label="Sélection des jeux de règles à comparer">
+        <label class="source-picker-label">
+          <span class="picker-tag">RÉFÉRENCE (A)</span>
+          <select
+            [value]="compareSourceAId()"
+            aria-label="Sélectionner le fichier source A"
+            (change)="onCompareSourceAChange($event)"
+          >
+            @for (source of sources(); track source.id) {
+              <option [value]="source.id" [disabled]="source.id === compareSourceBId()">
+                {{ sourceOptionLabel(source) }}
+              </option>
+            }
+          </select>
+        </label>
+        <span class="picker-vs" aria-hidden="true">vs</span>
+        <label class="source-picker-label">
+          <span class="picker-tag">CIBLE (B)</span>
+          <select
+            [value]="compareSourceBId()"
+            aria-label="Sélectionner le fichier source B"
+            (change)="onCompareSourceBChange($event)"
+          >
+            @for (source of sources(); track source.id) {
+              <option [value]="source.id" [disabled]="source.id === compareSourceAId()">
+                {{ sourceOptionLabel(source) }}
+              </option>
+            }
+          </select>
+        </label>
+      </div>
+    }
+  </div>
+
+  @if (sources().length < 2) {
+    <div class="empty-state compare-insufficient-sources">
+      <span class="empty-glyph" aria-hidden="true">⇄</span>
+      <strong>Comparaison impossible : au moins deux fichiers sont requis</strong>
+      <p>
+        Vous disposez actuellement de {{ sources().length }} fichier enregistré.
+        Pour comparer des règles, ajoutez un second fichier XML dans l’onglet de gestion des fichiers.
+      </p>
+      <button
+        class="outline-button"
+        type="button"
+        (click)="navigateToManage.emit()"
+      >
+        Accéder à la gestion des fichiers
+      </button>
+    </div>
+  } @else {
+    @let summary = comparisonSummary();
+    <div class="comparator-kpis" aria-label="Indicateurs de comparaison">
+      <button
+        type="button"
+        class="kpi-card"
+        [class.current]="compareDiffFilter() === 'all'"
+        (click)="onCompareDiffFilterChange('all')"
+      >
+        <strong>{{ formatCount(summary.totalRules) }}</strong>
+        <span>Règles analysées</span>
+      </button>
+      <div class="stat-separator" aria-hidden="true"></div>
+      <button
+        type="button"
+        class="kpi-card kpi-diffs"
+        [class.current]="compareDiffFilter() === 'all_diffs'"
+        (click)="onCompareDiffFilterChange('all_diffs')"
+      >
+        <div class="kpi-count-row">
+          <strong>{{ formatCount(summary.totalDiffsCount) }}</strong>
+          <span class="kpi-status-dot dot-diff" aria-hidden="true"></span>
+        </div>
+        <span>Tous les écarts</span>
+      </button>
+      <div class="stat-separator" aria-hidden="true"></div>
+      <button
+        type="button"
+        class="kpi-card kpi-divergent"
+        [class.current]="compareDiffFilter() === 'divergent'"
+        (click)="onCompareDiffFilterChange('divergent')"
+      >
+        <div class="kpi-count-row">
+          <strong>{{ formatCount(summary.divergentCount) }}</strong>
+          <span class="kpi-status-dot dot-divergent" aria-hidden="true"></span>
+        </div>
+        <span>Divergences</span>
+      </button>
+      <div class="stat-separator" aria-hidden="true"></div>
+      <button
+        type="button"
+        class="kpi-card kpi-only-a"
+        [class.current]="compareDiffFilter() === 'only_a'"
+        (click)="onCompareDiffFilterChange('only_a')"
+      >
+        <div class="kpi-count-row">
+          <strong>{{ formatCount(summary.onlyACount) }}</strong>
+          <span class="kpi-status-dot dot-only-a" aria-hidden="true"></span>
+        </div>
+        <span>Seulement A</span>
+      </button>
+      <div class="stat-separator" aria-hidden="true"></div>
+      <button
+        type="button"
+        class="kpi-card kpi-only-b"
+        [class.current]="compareDiffFilter() === 'only_b'"
+        (click)="onCompareDiffFilterChange('only_b')"
+      >
+        <div class="kpi-count-row">
+          <strong>{{ formatCount(summary.onlyBCount) }}</strong>
+          <span class="kpi-status-dot dot-only-b" aria-hidden="true"></span>
+        </div>
+        <span>Seulement B</span>
+      </button>
+      <div class="stat-separator" aria-hidden="true"></div>
+      <button
+        type="button"
+        class="kpi-card kpi-identical"
+        [class.current]="compareDiffFilter() === 'identical'"
+        (click)="onCompareDiffFilterChange('identical')"
+      >
+        <div class="kpi-count-row">
+          <strong>{{ formatCount(summary.identicalCount) }}</strong>
+          <span class="kpi-status-dot dot-identical" aria-hidden="true"></span>
+        </div>
+        <span>Identiques</span>
+      </button>
+    </div>
+
+    <div class="filter-panel compare-filters">
+      <label class="search-field">
+        <span class="search-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Rechercher une règle dans la comparaison</span>
+        <input
+          type="search"
+          [value]="compareQuery()"
+          placeholder="Rechercher par identifiant, libellé, profil…"
+          (input)="onCompareSearchInput($event)"
+        />
+        @if (compareQuery()) {
+          <button
+            class="clear-search"
+            aria-label="Effacer la recherche"
+            (click)="compareQuery.set('')"
+          >
+            ×
+          </button>
+        }
+        <kbd>⌕</kbd>
+      </label>
+      <div class="filter-divider" aria-hidden="true"></div>
+      <label class="select-filter">
+        <span>MODULE</span>
+        <select
+          [value]="compareModuleFilter()"
+          aria-label="Filtrer la comparaison par module"
+          (change)="onCompareModuleFilterChange($event)"
+        >
+          <option value="all">Tous les modules</option>
+          @for (module of comparisonModules(); track module.id) {
+            <option [value]="module.id">{{ module.label }}</option>
+          }
+        </select>
+      </label>
+      <button class="reset-button" (click)="clearCompareFilters()">Réinitialiser</button>
+    </div>
+
+    <div class="compare-results-header">
+      <span class="compare-results-count">
+        <strong>{{ formatCount(filteredComparisonItems().length) }}</strong>
+        @switch (compareDiffFilter()) {
+          @case ('all_diffs') { écarts affichés }
+          @case ('divergent') { règles avec divergences affichées }
+          @case ('only_a') { règles présentes uniquement dans A }
+          @case ('only_b') { règles présentes uniquement dans B }
+          @case ('identical') { règles strictement identiques }
+          @default { règles affichées }
+        }
+      </span>
+      <div class="compare-sources-legend">
+        <span><span class="legend-badge legend-a">A</span> {{ compareSourceA()?.fileName }}</span>
+        <span><span class="legend-badge legend-b">B</span> {{ compareSourceB()?.fileName }}</span>
+      </div>
+    </div>
+
+    <div class="compare-rule-list" role="list">
+      @for (item of filteredComparisonItems(); track item.comparisonKey) {
+        <article class="compare-rule-card" [class]="'status-' + item.status" role="listitem">
+          <header class="compare-rule-header">
+            <div class="compare-rule-title-group">
+              <span [class]="'compare-status-badge badge-' + item.status">
+                @switch (item.status) {
+                  @case ('divergent') { ⚠️ Divergence }
+                  @case ('only_in_a') { 🟥 Seulement dans A }
+                  @case ('only_in_b') { 🟩 Seulement dans B }
+                  @case ('identical') { ⚪ Identique }
+                }
+              </span>
+              <h3 class="compare-rule-id">{{ item.ruleId }}</h3>
+              <span class="compare-module-name">{{ item.moduleLabel }}</span>
+            </div>
+
+            <div class="compare-active-group">
+              <span class="field-label">ACTIF :</span>
+              @if (item.status === 'only_in_a') {
+                <span class="active-tag" [class.inactive]="!item.activeA">
+                  A : {{ item.activeA ? 'Oui' : 'Non' }}
+                </span>
+                <span class="active-tag inactive">B : Absent</span>
+              } @else if (item.status === 'only_in_b') {
+                <span class="active-tag inactive">A : Absent</span>
+                <span class="active-tag" [class.inactive]="!item.activeB">
+                  B : {{ item.activeB ? 'Oui' : 'Non' }}
+                </span>
+              } @else {
+                <span
+                  class="active-tag"
+                  [class.inactive]="!item.activeA"
+                  [class.active-conflict]="item.activeDiff"
+                >
+                  A : {{ item.activeA ? 'Oui' : 'Non' }}
+                </span>
+                <span
+                  class="active-tag"
+                  [class.inactive]="!item.activeB"
+                  [class.active-conflict]="item.activeDiff"
+                >
+                  B : {{ item.activeB ? 'Oui' : 'Non' }}
+                </span>
+                @if (item.activeDiff) {
+                  <span class="conflict-notice">Écart actif</span>
+                }
+              }
+            </div>
+          </header>
+
+          @if (item.label && item.label !== item.ruleId) {
+            <p class="compare-rule-label">{{ item.label }}</p>
+          }
+          @if (item.description) {
+            <p class="compare-rule-description">{{ item.description }}</p>
+          }
+
+          @if (item.profileDiffs.length > 0) {
+            <div class="compare-profiles-section">
+              <table class="diff-profile-table" [attr.aria-label]="'Comparaison des profils pour ' + item.ruleId">
+                <thead>
+                  <tr>
+                    <th scope="col">Profil</th>
+                    <th scope="col">Fichier A ({{ compareSourceA()?.fileName }})</th>
+                    <th scope="col">Fichier B ({{ compareSourceB()?.fileName }})</th>
+                    <th scope="col">Diagnostic</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (diff of item.profileDiffs; track diff.profile) {
+                    <tr [class.diff-row-changed]="diff.hasDiff" [class.diff-row-same]="!diff.hasDiff">
+                      <th scope="row" class="profile-key">{{ diff.profile }}</th>
+                      <td>
+                        @if (diff.behaviorA) {
+                          <span [class]="'behavior-badge ' + getBehaviorClass(diff.behaviorA)">
+                            {{ diff.behaviorA }}
+                          </span>
+                        } @else {
+                          <span class="behavior-empty">— Non défini</span>
+                        }
+                      </td>
+                      <td>
+                        @if (diff.behaviorB) {
+                          <span [class]="'behavior-badge ' + getBehaviorClass(diff.behaviorB)">
+                            {{ diff.behaviorB }}
+                          </span>
+                        } @else {
+                          <span class="behavior-empty">— Non défini</span>
+                        }
+                      </td>
+                      <td>
+                        @if (diff.hasDiff) {
+                          <span class="diff-indicator diff-warning">
+                            <span aria-hidden="true">⚠️</span> Écart
+                          </span>
+                        } @else {
+                          <span class="diff-indicator diff-ok">
+                            <span aria-hidden="true">✓</span> Identique
+                          </span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </article>
+      } @empty {
+        <div class="empty-state">
+          <span class="empty-glyph" aria-hidden="true">✓</span>
+          <strong>Aucune divergence à afficher</strong>
+          <p>
+            Toutes les règles correspondent aux critères de filtre sélectionnés ou aucune différence n’a été détectée.
+          </p>
+          <button class="text-button" (click)="clearCompareFilters()">
+            Afficher toutes les règles
+          </button>
+        </div>
+      }
+    </div>
+  }
+</section>

@@ -57,6 +57,39 @@ export function buildRuleComparisonKey(moduleId: string, ruleId: string): string
   return `${moduleId}::${ruleId}`;
 }
 
+function buildSingleRuleItem(
+  comparisonKey: string,
+  rule: VettingRule,
+  status: 'only_in_a' | 'only_in_b',
+): RuleComparisonItem {
+  const isA = status === 'only_in_a';
+  const profileDiffs: ProfileDiff[] = Object.entries(rule.profiles)
+    .sort(([left], [right]) => left.localeCompare(right, 'fr-FR'))
+    .map(([profile, behavior]) => ({
+      profile,
+      behaviorA: isA ? behavior : null,
+      behaviorB: isA ? null : behavior,
+      hasDiff: true,
+    }));
+
+  return {
+    comparisonKey,
+    moduleId: rule.moduleId,
+    moduleLabel: rule.moduleLabel,
+    ruleId: rule.id,
+    label: rule.label,
+    description: rule.description,
+    ruleA: isA ? rule : null,
+    ruleB: isA ? null : rule,
+    status,
+    activeA: isA ? rule.active : null,
+    activeB: isA ? null : rule.active,
+    activeDiff: false,
+    profileDiffs,
+    hasProfileDiff: profileDiffs.length > 0,
+  };
+}
+
 export function compareVettingRules(
   rulesA: readonly VettingRule[],
   rulesB: readonly VettingRule[],
@@ -88,57 +121,9 @@ export function compareVettingRules(
     const ruleB = mapB.get(key) ?? null;
 
     if (ruleA && !ruleB) {
-      const profileDiffs: ProfileDiff[] = Object.entries(ruleA.profiles)
-        .sort(([left], [right]) => left.localeCompare(right, 'fr-FR'))
-        .map(([profile, behaviorA]) => ({
-          profile,
-          behaviorA,
-          behaviorB: null,
-          hasDiff: true,
-        }));
-
-      items.push({
-        comparisonKey: key,
-        moduleId: ruleA.moduleId,
-        moduleLabel: ruleA.moduleLabel,
-        ruleId: ruleA.id,
-        label: ruleA.label,
-        description: ruleA.description,
-        ruleA,
-        ruleB: null,
-        status: 'only_in_a',
-        activeA: ruleA.active,
-        activeB: null,
-        activeDiff: false,
-        profileDiffs,
-        hasProfileDiff: profileDiffs.length > 0,
-      });
+      items.push(buildSingleRuleItem(key, ruleA, 'only_in_a'));
     } else if (!ruleA && ruleB) {
-      const profileDiffs: ProfileDiff[] = Object.entries(ruleB.profiles)
-        .sort(([left], [right]) => left.localeCompare(right, 'fr-FR'))
-        .map(([profile, behaviorB]) => ({
-          profile,
-          behaviorA: null,
-          behaviorB,
-          hasDiff: true,
-        }));
-
-      items.push({
-        comparisonKey: key,
-        moduleId: ruleB.moduleId,
-        moduleLabel: ruleB.moduleLabel,
-        ruleId: ruleB.id,
-        label: ruleB.label,
-        description: ruleB.description,
-        ruleA: null,
-        ruleB,
-        status: 'only_in_b',
-        activeA: null,
-        activeB: ruleB.active,
-        activeDiff: false,
-        profileDiffs,
-        hasProfileDiff: profileDiffs.length > 0,
-      });
+      items.push(buildSingleRuleItem(key, ruleB, 'only_in_b'));
     } else if (ruleA && ruleB) {
       const activeDiff = ruleA.active !== ruleB.active;
       const allProfiles = [
@@ -301,4 +286,24 @@ export function filterComparisonItems(
 
     return true;
   });
+}
+
+const numberFormatter = new Intl.NumberFormat('fr-FR');
+
+export function formatCount(value: number): string {
+  return numberFormatter.format(value);
+}
+
+export function getBehaviorClass(value: string): string {
+  switch (value) {
+    case 'ERROR':
+      return 'behavior-error';
+    case 'WARNING':
+    case 'WARNING_ACCEPTED':
+      return 'behavior-warning';
+    case 'IGNORE':
+      return 'behavior-muted';
+    default:
+      return 'behavior-default';
+  }
 }

@@ -1,0 +1,111 @@
+<section class="source-manager" aria-labelledby="source-manager-title">
+  <div class="manager-heading">
+    <div>
+      <p class="eyebrow small"><span class="eyebrow-line"></span> STOCKAGE LOCAL</p>
+      <h2 id="source-manager-title">Jeux de règles</h2>
+      <p class="result-context">
+        Les fichiers restent dans le stockage de ce navigateur. Rien n’est envoyé à un
+        serveur externe.
+      </p>
+    </div>
+    <label class="import-button">
+      <span aria-hidden="true">＋</span> Ajouter des XML
+      <input
+        type="file"
+        accept=".xml,text/xml,application/xml"
+        multiple
+        aria-label="Ajouter des fichiers XML"
+        (change)="onXmlFilesChange($event)"
+      />
+    </label>
+  </div>
+
+  @if (bundledUpdateAvailable()) {
+    <div class="update-notice" role="status">
+      <div>
+        <strong>Une version du fichier intégré est disponible.</strong>
+        <p>
+          Vos données locales ne sont pas remplacées automatiquement ; les corrections
+          faites aux adhérents et offres seront conservées.
+        </p>
+      </div>
+      <button class="outline-button" type="button" (click)="updateBundledSource()">
+        Mettre à jour le fichier intégré
+      </button>
+    </div>
+  }
+
+  @if (managementMessage()) {
+    <p class="manager-message" role="status">{{ managementMessage() }}</p>
+  }
+  @if (managementError()) {
+    <pre class="manager-error" role="alert">{{ managementError() }}</pre>
+  }
+
+  <div class="source-list">
+    @for (source of sources(); track source.id) {
+      <article class="source-card">
+        <div class="source-card-heading">
+          <div>
+            <p class="source-kicker">
+              {{ source.origin === 'bundled' ? 'FICHIER INTÉGRÉ' : 'FICHIER IMPORTÉ' }}
+              <span>· {{ formatCount(sourceRuleCount(source.id)) }} règles</span>
+            </p>
+            <h3>{{ source.fileName }}</h3>
+            @if (source.propertiesFileName) {
+              <p class="properties-status">
+                Libellés associés : <code>{{ source.propertiesFileName }}</code>
+              </p>
+            } @else {
+              <p class="properties-status">Libellés de repli : identifiants XML</p>
+            }
+          </div>
+          <button
+            class="remove-source"
+            type="button"
+            (click)="removeSource(source)"
+            [attr.aria-label]="'Supprimer ' + source.fileName"
+          >
+            Supprimer
+          </button>
+        </div>
+
+        <div class="source-metadata">
+          <label>
+            <span>ADHÉRENT</span>
+            <input
+              type="text"
+              [value]="source.adherent"
+              placeholder="À renseigner"
+              (change)="onSourceMetadataChange(source, 'adherent', $event)"
+            />
+          </label>
+          <label>
+            <span>OFFRE</span>
+            <input
+              type="text"
+              [value]="source.offer"
+              placeholder="À renseigner"
+              (change)="onSourceMetadataChange(source, 'offer', $event)"
+            />
+          </label>
+          <label class="properties-picker">
+            <span>{{ source.propertiesFileName ? 'REMPLACER LES LIBELLÉS' : 'FICHIER .PROPERTIES (FACULTATIF)' }}</span>
+            <input
+              type="file"
+              accept=".properties,text/plain"
+              [attr.aria-label]="'Associer un fichier properties à ' + source.fileName"
+              (change)="onPropertiesFileChange(source, $event)"
+            />
+          </label>
+        </div>
+      </article>
+    } @empty {
+      <div class="empty-state">
+        <span class="empty-glyph" aria-hidden="true">＋</span>
+        <strong>Aucun jeu de règles enregistré</strong>
+        <p>Ajoutez un fichier XML valide pour créer un catalogue local.</p>
+      </div>
+    }
+  </div>
+</section>

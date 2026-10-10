@@ -5,13 +5,11 @@ import { VettingCatalogService, VettingCatalogWorkspace } from './vetting-catalo
 import { RuleFamily, VettingOperation, VettingRule } from './vetting-catalog';
 import { StoredVettingSource } from './vetting-catalog-storage';
 import { createRuleGroups, GroupLevel, RuleGroup } from './rule-grouping';
+import { RuleComparisonComponent } from './rule-comparison.component';
+import { SourceManagementComponent } from './source-management.component';
 import {
   compareVettingRules,
-  filterComparisonItems,
-  ComparisonDiffFilter,
   ComparisonSummary,
-  ProfileDiff,
-  RuleComparisonItem,
 } from './rule-comparison';
 
 type WorkspaceView = 'catalog' | 'manage' | 'compare';
@@ -37,7 +35,7 @@ const groupOptions: readonly GroupOption[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [NgTemplateOutlet],
+  imports: [NgTemplateOutlet, RuleComparisonComponent, SourceManagementComponent],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
@@ -49,8 +47,6 @@ export class App implements OnInit {
   protected readonly workspace = signal<VettingCatalogWorkspace | null>(null);
   protected readonly catalog = computed(() => this.workspace()?.catalog ?? null);
   protected readonly errorMessage = signal('');
-  protected readonly managementError = signal('');
-  protected readonly managementMessage = signal('');
   protected readonly workspaceView = signal<WorkspaceView>('catalog');
   protected readonly query = signal('');
   protected readonly selectedOperationId = signal<string | null>(null);
@@ -78,62 +74,17 @@ export class App implements OnInit {
   protected readonly bundledUpdateAvailable = computed(
     () => this.workspace()?.bundledUpdateAvailable ?? false,
   );
-  protected readonly compareSourceAId = signal<string | null>(null);
-  protected readonly compareSourceBId = signal<string | null>(null);
-  protected readonly compareDiffFilter = signal<ComparisonDiffFilter>('all_diffs');
-  protected readonly compareModuleFilter = signal('all');
-  protected readonly compareQuery = signal('');
 
-  protected readonly compareSourceA = computed(
-    () => this.sources().find((source) => source.id === this.compareSourceAId()) ?? null,
-  );
-  protected readonly compareSourceB = computed(
-    () => this.sources().find((source) => source.id === this.compareSourceBId()) ?? null,
-  );
-
-  protected readonly rulesSourceA = computed(() => {
-    const sourceId = this.compareSourceAId();
-    if (!sourceId) {
-      return [];
+  protected readonly comparisonSummary = computed(() => {
+    const sources = this.sources();
+    if (sources.length < 2) {
+      return null;
     }
-    return this.catalog()?.rules.filter((rule) => rule.sourceId === sourceId) ?? [];
+    const rules = this.catalog()?.rules ?? [];
+    const rulesA = rules.filter((rule) => rule.sourceId === sources[0].id);
+    const rulesB = rules.filter((rule) => rule.sourceId === sources[1].id);
+    return compareVettingRules(rulesA, rulesB).summary;
   });
-
-  protected readonly rulesSourceB = computed(() => {
-    const sourceId = this.compareSourceBId();
-    if (!sourceId) {
-      return [];
-    }
-    return this.catalog()?.rules.filter((rule) => rule.sourceId === sourceId) ?? [];
-  });
-
-  protected readonly comparisonResult = computed(() =>
-    compareVettingRules(this.rulesSourceA(), this.rulesSourceB()),
-  );
-
-  protected readonly comparisonSummary = computed(() => this.comparisonResult().summary);
-  protected readonly allComparisonItems = computed(() => this.comparisonResult().items);
-
-  protected readonly comparisonModules = computed(() => {
-    const items = this.allComparisonItems();
-    const map = new Map<string, string>();
-    for (const item of items) {
-      if (!map.has(item.moduleId)) {
-        map.set(item.moduleId, item.moduleLabel);
-      }
-    }
-    return [...map.entries()]
-      .map(([id, label]) => ({ id, label }))
-      .sort((a, b) => a.label.localeCompare(b.label, 'fr-FR'));
-  });
-
-  protected readonly filteredComparisonItems = computed(() =>
-    filterComparisonItems(this.allComparisonItems(), {
-      diffFilter: this.compareDiffFilter(),
-      moduleId: this.compareModuleFilter(),
-      query: this.compareQuery(),
-    }),
-  );
   protected readonly familyOptions = computed(() =>
     this.operations().flatMap((operation) =>
       operation.families.map((family) => {
@@ -296,68 +247,6 @@ export class App implements OnInit {
         finishPendingTask();
       });
     });
-
-    effect(() => {
-      const sources = this.sources();
-      if (sources.length >= 2) {
-        const currentA = this.compareSourceAId();
-        const currentB = this.compareSourceBId();
-        const validA = sources.some((s) => s.id === currentA);
-        const validB = sources.some((s) => s.id === currentB);
-
-        if (!validA) {
-          this.compareSourceAId.set(sources[0].id);
-        }
-        if (!validB || (validA && currentB === currentA)) {
-          const alternate = sources.find((s) => s.id !== (validA ? currentA : sources[0].id));
-          this.compareSourceBId.set(alternate ? alternate.id : sources[1].id);
-        }
-      } else if (sources.length === 1) {
-        this.compareSourceAId.set(sources[0].id);
-        this.compareSourceBId.set(null);
-      } else {
-        this.compareSourceAId.set(null);
-        this.compareSourceBId.set(null);
-      }
-    });
-  }
-
-  protected onCompareSourceAChange(event: Event): void {
-    const target = event.target as HTMLSelectElement;
-    this.compareSourceAId.set(target.value);
-  }
-
-  protected onCompareSourceBChange(event: Event): void {
-    const target = event.target as HTMLSelectElement;
-    this.compareSourceBId.set(target.value);
-  }
-
-  protected onCompareDiffFilterChange(filter: ComparisonDiffFilter): void {
-    this.compareDiffFilter.set(filter);
-  }
-
-  protected onCompareModuleFilterChange(event: Event): void {
-    const target = event.target as HTMLSelectElement;
-    this.compareModuleFilter.set(target.value);
-  }
-
-  protected onCompareSearchInput(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    this.compareQuery.set(target.value);
-  }
-
-  protected clearCompareFilters(): void {
-    this.compareDiffFilter.set('all_diffs');
-    this.compareModuleFilter.set('all');
-    this.compareQuery.set('');
-  }
-
-  protected sourceOptionLabel(source: StoredVettingSource): string {
-    const parts = [source.fileName];
-    if (source.adherent || source.offer) {
-      parts.push(`(${[source.adherent, source.offer].filter(Boolean).join(' · ')})`);
-    }
-    return parts.join(' ');
   }
 
   protected selectOperation(operation: VettingOperation): void {
@@ -479,113 +368,8 @@ export class App implements OnInit {
     });
   }
 
-  protected async onXmlFilesChange(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const files = Array.from(input.files ?? []);
-    input.value = '';
-    this.managementError.set('');
-    this.managementMessage.set('');
-    const imported: string[] = [];
-    const errors: string[] = [];
-
-    for (const file of files) {
-      try {
-        const duplicate = this.sources().find(
-          (source) =>
-            source.fileName.toLocaleLowerCase('fr-FR') === file.name.toLocaleLowerCase('fr-FR'),
-        );
-        let replaceSourceId: string | undefined;
-        if (duplicate) {
-          const shouldReplace = window.confirm(
-            `Un jeu de règles nommé « ${file.name} » existe déjà. Voulez-vous le remplacer ?`,
-          );
-          if (!shouldReplace) {
-            continue;
-          }
-          replaceSourceId = duplicate.id;
-        }
-        await this.catalogService.importXmlFile(file, replaceSourceId);
-        imported.push(file.name);
-      } catch (error: unknown) {
-        errors.push(`${file.name} : ${this.describeError(error)}`);
-      }
-    }
-
-    if (imported.length > 0) {
-      this.managementMessage.set(
-        `${imported.length} fichier${imported.length > 1 ? 's' : ''} XML importé${imported.length > 1 ? 's' : ''}.`,
-      );
-      await this.refreshWorkspace();
-    }
-    this.managementError.set(errors.join('\n'));
-  }
-
-  protected async onSourceMetadataChange(
-    source: StoredVettingSource,
-    field: 'adherent' | 'offer',
-    event: Event,
-  ): Promise<void> {
-    const value = (event.target as HTMLInputElement).value;
-    const adherent = field === 'adherent' ? value : source.adherent;
-    const offer = field === 'offer' ? value : source.offer;
-    try {
-      await this.catalogService.updateSourceMetadata(source.id, adherent, offer);
-      await this.refreshWorkspace();
-    } catch (error: unknown) {
-      this.managementError.set(this.describeError(error));
-    }
-  }
-
-  protected async onPropertiesFileChange(
-    source: StoredVettingSource,
-    event: Event,
-  ): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file) {
-      return;
-    }
-    this.managementError.set('');
-    this.managementMessage.set('');
-    try {
-      await this.catalogService.attachPropertiesFile(source.id, file);
-      this.managementMessage.set(`Libellés associés à « ${source.fileName} ».`);
-      await this.refreshWorkspace();
-    } catch (error: unknown) {
-      this.managementError.set(`${file.name} : ${this.describeError(error)}`);
-    }
-  }
-
-  protected async removeSource(source: StoredVettingSource): Promise<void> {
-    if (!window.confirm(`Supprimer « ${source.fileName} » du stockage local de ce navigateur ?`)) {
-      return;
-    }
-    this.managementError.set('');
-    this.managementMessage.set('');
-    try {
-      await this.catalogService.removeSource(source.id);
-      this.managementMessage.set(`« ${source.fileName} » a été supprimé du stockage local.`);
-      await this.refreshWorkspace();
-    } catch (error: unknown) {
-      this.managementError.set(this.describeError(error));
-    }
-  }
-
-  protected async updateBundledSource(): Promise<void> {
-    this.managementError.set('');
-    this.managementMessage.set('');
-    try {
-      await this.catalogService.updateBundledSource();
-      this.managementMessage.set('Le jeu de règles intégré a été mis à jour.');
-      await this.refreshWorkspace();
-    } catch (error: unknown) {
-      this.managementError.set(this.describeError(error));
-    }
-  }
-
-  protected sourceRuleCount(sourceId: string): number {
-    return this.catalog()?.rules.filter((rule) => rule.sourceId === sourceId).length ?? 0;
+  protected onWorkspaceUpdated(): void {
+    void this.refreshWorkspace();
   }
 
   protected clearFilters(): void {
@@ -707,7 +491,7 @@ export class App implements OnInit {
         this.errorMessage.set(message);
         this.loadingState.set('error');
       } else {
-        this.managementError.set(message);
+        this.errorMessage.set(message);
       }
     }
   }

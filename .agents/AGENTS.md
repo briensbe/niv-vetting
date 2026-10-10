@@ -8,6 +8,12 @@
 - Utiliser systématiquement `pnpm` plutôt que `npm`.
 - Commande de build : `pnpm build` (ou `pnpm run build`).
 
+## Recherche & Exploration du code
+- Utiliser `ripgrep` (`rg`) pour rechercher du texte ou des symboles dans le dépôt, en limitant la recherche aux dossiers et types de fichiers pertinents.
+- Pour repérer des fichiers, préférer les outils de recherche de fichiers disponibles ou `rg --files` avec un filtre adapté.
+- Lire le contexte des fichiers concernés avant toute modification et respecter les conventions déjà présentes dans le projet.
+- Éviter les sorties de recherche trop volumineuses : affiner les motifs ou les chemins plutôt que d’afficher tout le dépôt.
+
 ## Angular & TypeScript
 - Angular avec composants autonomes (`standalone: true`).
 - Syntaxe de contrôle de flux native Angular obligatoire (`@if`, `@for`, `@switch`). Directives structurelles (`*ngIf`, `*ngFor`) proscrites.

@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Parcourir les règles par opération et famille
-L’interface SHALL présenter les règles du jeu de données en conservant leur contexte d’opération (module) et de famille (rule-set). Une règle apparaissant dans plusieurs contextes SHALL rester consultable dans chacun d’eux.
+L’interface SHALL présenter les règles du jeu de données en conservant leur contexte d’opération (module) et de famille (rule-set). Une règle apparaissant dans plusieurs contextes SHALL rester consultable dans chacun d’eux. Pour un `rule-set` dépourvu d’attribut `id`, l’interface SHALL dériver son libellé du package Java et conserver le package complet dans le détail.
 
 #### Scenario: Sélectionner une opération
 - **WHEN** l’utilisateur sélectionne une opération dans la navigation
@@ -10,6 +10,10 @@ L’interface SHALL présenter les règles du jeu de données en conservant leur
 #### Scenario: Parcourir une famille
 - **WHEN** l’utilisateur sélectionne une famille de règles
 - **THEN** l’interface limite la liste aux règles de cette famille et conserve leur identifiant et leur contexte
+
+#### Scenario: Parcourir une famille sans identifiant
+- **WHEN** un `rule-set` ne contient pas d’attribut `id`
+- **THEN** l’interface affiche un libellé dérivé du package Java et expose le package complet dans le détail sans fusionner cette famille avec une autre
 
 ### Requirement: Rechercher et filtrer les règles
 L’interface SHALL permettre une recherche globale par identifiant, libellé français ou description, ainsi que le filtrage par opération, famille, état actif et comportement configuré pour un profil. La recherche globale SHALL pouvoir retourner les règles indépendamment de l’opération sélectionnée dans la navigation.

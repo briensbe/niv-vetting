@@ -1,15 +1,16 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
 import { App } from './app';
-import { VettingCatalogService } from './vetting-catalog.service';
+import { VettingCatalogService, VettingCatalogWorkspace } from './vetting-catalog.service';
 import { VettingCatalog } from './vetting-catalog';
 
 const sampleRule = {
   key: 'PAYMENT::common::R1::0',
   moduleId: 'PAYMENT',
   moduleLabel: 'Paiements',
+  operationKey: 'seed::PAYMENT',
   familyId: 'common',
   familyLabel: 'common',
+  familyKey: 'seed::PAYMENT::common',
   packageName: 'example.rules.Common',
   id: 'R1',
   label: 'Règle de démonstration',
@@ -20,14 +21,20 @@ const sampleRule = {
   ],
   active: true,
   profiles: { USER: 'ERROR', ROOT: 'IGNORE' },
+  sourceId: 'seed',
+  sourceName: 'crca_initial_vetting_rules.xml',
+  adherent: 'crca',
+  offer: 'initial',
 };
 
 const secondRule = {
   key: 'TRANSFER::wire::R2::0',
   moduleId: 'TRANSFER',
   moduleLabel: 'Virements',
+  operationKey: 'lcl::TRANSFER',
   familyId: 'wire',
   familyLabel: 'wire',
+  familyKey: 'lcl::TRANSFER::wire',
   packageName: 'example.rules.Transfer',
   id: 'R2',
   label: 'Seuil de virement',
@@ -35,17 +42,23 @@ const secondRule = {
   messageVariants: [],
   active: false,
   profiles: { USER: 'WARNING', ROOT: 'IGNORE' },
+  sourceId: 'lcl',
+  sourceName: 'lcl_expert_vetting_rules.xml',
+  adherent: 'lcl',
+  offer: 'expert',
 };
 
 const catalog: VettingCatalog = {
   operations: [
     {
       id: 'PAYMENT',
+      key: 'seed::PAYMENT',
       label: 'Paiements',
       ruleCount: 1,
       families: [
         {
           id: 'common',
+          key: 'seed::PAYMENT::common',
           hasDeclaredId: true,
           label: 'common',
           packageName: 'example.rules.Common',
@@ -53,6 +66,7 @@ const catalog: VettingCatalog = {
         },
         {
           id: 'package-family-1',
+          key: 'seed::PAYMENT::package-family-1',
           hasDeclaredId: false,
           label: 'derived / from package',
           packageName: 'example.rules.Derived',
@@ -62,11 +76,13 @@ const catalog: VettingCatalog = {
     },
     {
       id: 'TRANSFER',
+      key: 'lcl::TRANSFER',
       label: 'Virements',
       ruleCount: 1,
       families: [
         {
           id: 'wire',
+          key: 'lcl::TRANSFER::wire',
           hasDeclaredId: true,
           label: 'wire',
           packageName: 'example.rules.Transfer',
@@ -80,11 +96,45 @@ const catalog: VettingCatalog = {
   behaviors: ['ERROR', 'IGNORE', 'WARNING'],
 };
 
-const catalogService = { load: vi.fn(() => of(catalog)) };
+const workspace: VettingCatalogWorkspace = {
+  catalog,
+  sources: [
+    {
+      id: 'seed',
+      fileName: 'crca_initial_vetting_rules.xml',
+      adherent: 'crca',
+      offer: 'initial',
+      origin: 'bundled',
+      xmlText: '',
+      propertiesText: '',
+      propertiesFileName: 'Vetting_fr_FR.properties',
+    },
+    {
+      id: 'lcl',
+      fileName: 'lcl_expert_vetting_rules.xml',
+      adherent: 'lcl',
+      offer: 'expert',
+      origin: 'imported',
+      xmlText: '',
+      propertiesText: '',
+      propertiesFileName: null,
+    },
+  ],
+  bundledUpdateAvailable: false,
+};
+
+const catalogService = {
+  load: vi.fn(async () => workspace),
+  importXmlFile: vi.fn(async () => undefined),
+  updateSourceMetadata: vi.fn(async () => undefined),
+  attachPropertiesFile: vi.fn(async () => undefined),
+  removeSource: vi.fn(async () => undefined),
+  updateBundledSource: vi.fn(async () => undefined),
+};
 
 describe('App', () => {
   beforeEach(async () => {
-    catalogService.load.mockReturnValue(of(catalog));
+    catalogService.load.mockResolvedValue(workspace);
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
@@ -115,11 +165,12 @@ describe('App', () => {
       compiled.querySelector('.rule-card .rule-disclosure .secondary-content .rule-context')
         ?.textContent,
     ).toContain('common');
-    expect(compiled.querySelectorAll('.rule-card:first-child .profile-row')).toHaveLength(2);
-    expect(compiled.querySelectorAll('.rule-card:first-child .behavior-badge svg')).toHaveLength(2);
+    const firstRuleCard = compiled.querySelector('.rule-card');
+    expect(firstRuleCard?.querySelectorAll('.profile-row')).toHaveLength(2);
+    expect(firstRuleCard?.querySelectorAll('.behavior-badge svg')).toHaveLength(2);
     expect(compiled.querySelector('.rule-card .rule-profiles .field-label')).toBeNull();
     expect(
-      Array.from(compiled.querySelectorAll('.rule-card:first-child .behavior-badge'), (badge) =>
+      Array.from(firstRuleCard?.querySelectorAll('.behavior-badge') ?? [], (badge) =>
         badge.getAttribute('aria-label'),
       ),
     ).toEqual(['ERROR', 'IGNORE']);
@@ -167,6 +218,21 @@ describe('App', () => {
     expect(fixture.nativeElement.textContent).toContain('Résultats de recherche');
   });
 
+  it('searches across filename and imported adherent/offer metadata', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const search = fixture.nativeElement.querySelector('input[type="search"]') as HTMLInputElement;
+    search.value = 'expert';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R2');
+  });
+
   it('keeps a global search independent from the navigation selection', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
@@ -201,7 +267,7 @@ describe('App', () => {
       fixture.detectChanges();
     };
 
-    select('Filtrer par opération', 'TRANSFER');
+    select('Filtrer par module', 'lcl::TRANSFER');
     select('Filtrer par état actif', 'inactive');
     select('Filtrer par profil', 'USER');
     select('Filtrer par comportement de profil', 'WARNING');
@@ -220,11 +286,67 @@ describe('App', () => {
     const familyOptions = Array.from(
       (
         fixture.nativeElement.querySelector(
-          '[aria-label="Filtrer par famille"]',
+          '[aria-label="Filtrer par rule-set"]',
         ) as HTMLSelectElement
       ).options,
     ).map((option) => option.textContent?.trim());
     expect(familyOptions).toEqual(['Toutes', 'common', '(Paiements)', 'wire']);
+  });
+
+  it('adds and reorders grouping dimensions', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const grouping = fixture.nativeElement.querySelector(
+      '[aria-label="Nouveau niveau de regroupement"]',
+    ) as HTMLSelectElement;
+    grouping.value = 'file';
+    grouping.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.grouping-add button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const groupingLabels = fixture.nativeElement.querySelectorAll(
+      '.grouping-chip > span:nth-child(2)',
+    ) as NodeListOf<HTMLElement>;
+    expect(Array.from(groupingLabels, (item) => item.textContent?.trim())).toEqual([
+      'Module',
+      'Rule-set',
+      'Fichier',
+    ]);
+
+    (fixture.nativeElement.querySelector('[aria-label="Monter Fichier"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const reorderedGroupingLabels = fixture.nativeElement.querySelectorAll(
+      '.grouping-chip > span:nth-child(2)',
+    ) as NodeListOf<HTMLElement>;
+    expect(
+      Array.from(reorderedGroupingLabels, (item) => item.textContent?.trim()),
+    ).toEqual(['Module', 'Fichier', 'Rule-set']);
+  });
+
+  it('shows local catalog management and the metadata inferred from filenames', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const manageButtons = fixture.nativeElement.querySelectorAll(
+      '.workspace-tabs button',
+    ) as NodeListOf<HTMLButtonElement>;
+    const manageButton = Array.from(manageButtons).find((button) =>
+      button.textContent?.includes('Gérer les fichiers'),
+    );
+    (manageButton as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('lcl_expert_vetting_rules.xml');
+    expect(fixture.nativeElement.textContent).toContain('Stockage local');
+    const textInputs = fixture.nativeElement.querySelectorAll('.source-metadata input[type="text"]');
+    expect((textInputs[2] as HTMLInputElement).value).toBe('lcl');
+    expect((textInputs[3] as HTMLInputElement).value).toBe('expert');
   });
 
   it('shows a recoverable empty state when no rule matches', async () => {
@@ -245,7 +367,7 @@ describe('App', () => {
   });
 
   it('shows an explicit loading error instead of an empty catalogue', async () => {
-    catalogService.load.mockReturnValue(throwError(() => new Error('XML invalide')));
+    catalogService.load.mockRejectedValue(new Error('XML invalide'));
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     await fixture.whenStable();

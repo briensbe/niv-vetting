@@ -27,12 +27,40 @@ describe('parseJavaProperties', () => {
     expect(properties.get('key=part')).toBe('value:here');
   });
 
+  it('decodes numeric HTML character references in property values', () => {
+    const properties = parseJavaProperties(
+      'rule.description=ACCOUNT_STATUS == 4 &#124;&#124; ACCOUNT_STATUS == 5\nrule.message=first&#13;second',
+    );
+
+    expect(properties.get('rule.description')).toBe('ACCOUNT_STATUS == 4 || ACCOUNT_STATUS == 5');
+    expect(properties.get('rule.message')).toBe('first\rsecond');
+  });
+
   it('rejects malformed Unicode escapes', () => {
     expect(() => parseJavaProperties('bad=\\u12G4')).toThrow(/Échappement Unicode invalide/);
   });
 });
 
 describe('buildVettingCatalog', () => {
+  it('supports XML-only catalogs and decorates every occurrence with its source metadata', () => {
+    const catalog = buildVettingCatalog(sampleXml, '', {
+      id: 'lcl-expert',
+      fileName: 'lcl_expert_vetting_rules.xml',
+      adherent: 'lcl',
+      offer: 'expert',
+    });
+
+    expect(catalog.rules[0]).toMatchObject({
+      key: expect.stringContaining('lcl-expert::'),
+      sourceId: 'lcl-expert',
+      sourceName: 'lcl_expert_vetting_rules.xml',
+      adherent: 'lcl',
+      offer: 'expert',
+      label: 'R1',
+    });
+    expect(catalog.operations[0].key).toBe('lcl-expert::PAYMENT');
+  });
+
   it('retains profile and operation context and applies translated labels and descriptions', () => {
     const catalog = buildVettingCatalog(
       sampleXml,
@@ -70,6 +98,9 @@ describe('buildVettingCatalog', () => {
   it('rejects invalid XML and unexpected roots', () => {
     expect(() => parseVettingXml('<bad')).toThrow(/XML est invalide/);
     expect(() => parseVettingXml('<wrong/>')).toThrow(/racine XML inattendu/);
+    expect(() =>
+      parseVettingXml('<vetting-configuration><module id="M"/></vetting-configuration>'),
+    ).toThrow(/aucune occurrence de règle/);
   });
 
   it('rejects missing required rule attributes', () => {

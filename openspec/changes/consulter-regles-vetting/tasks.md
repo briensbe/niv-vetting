@@ -16,3 +16,11 @@
 
 - [x] 3.1 Exécuter les tests et le build Angular, puis corriger les régressions liées à l’évolution.
 - [x] 3.2 Vérifier sur le jeu de données réel les recherches, filtres, libellés de repli, descriptions et occurrences ayant le même identifiant dans plusieurs contextes.
+
+## 4. Étendre les catalogues locaux
+
+- [x] 4.1 Persister le catalogue intégré et les catalogues importés dans IndexedDB, avec mise à jour explicite du jeu livré.
+- [x] 4.2 Importer plusieurs XML valides, valider leur structure et confirmer le remplacement d’un nom déjà présent.
+- [x] 4.3 Associer les fichiers `.properties` et permettre la correction des métadonnées adhérent/offre déduites du nom.
+- [x] 4.4 Étendre la recherche aux métadonnées et ajouter des niveaux de regroupement configurables et réordonnables.
+- [x] 4.5 Couvrir les parcours locaux par des tests et vérifier le build de production.

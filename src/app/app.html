@@ -6,9 +6,9 @@
     </a>
     <div class="topbar-meta">
       <span class="status-dot"></span>
-      <span>Référentiel de démonstration</span>
+      <span>Stockage local au navigateur</span>
       <span class="topbar-divider" aria-hidden="true"></span>
-      <span class="version-label">CRCA · INITIAL</span>
+      <span class="version-label">{{ sources().length }} JEUX</span>
     </div>
   </header>
 
@@ -23,21 +23,21 @@
           Explorez les contrôles, leurs libellés et leur comportement selon le profil.
         </p>
       </div>
-      @if (catalog(); as data) {
+      @if (workspace(); as data) {
         <div class="catalog-stats" aria-label="Statistiques du catalogue">
           <div class="stat">
-            <strong>{{ formatCount(data.rules.length) }}</strong>
+            <strong>{{ formatCount(data.catalog.rules.length) }}</strong>
             <span>règles</span>
           </div>
           <div class="stat-separator" aria-hidden="true"></div>
           <div class="stat">
-            <strong>{{ formatCount(data.operations.length) }}</strong>
-            <span>opérations</span>
+            <strong>{{ formatCount(data.catalog.operations.length) }}</strong>
+            <span>modules</span>
           </div>
           <div class="stat-separator" aria-hidden="true"></div>
           <div class="stat">
-            <strong>{{ data.profiles.length }}</strong>
-            <span>profils</span>
+            <strong>{{ data.sources.length }}</strong>
+            <span>fichiers locaux</span>
           </div>
         </div>
       }
@@ -60,6 +60,139 @@
         </div>
       </section>
     } @else {
+      <nav class="workspace-tabs" aria-label="Vues du catalogue">
+        <button
+          type="button"
+          [class.current]="workspaceView() === 'catalog'"
+          [attr.aria-current]="workspaceView() === 'catalog' ? 'page' : null"
+          (click)="workspaceView.set('catalog')"
+        >
+          <span class="tab-index">01</span> Explorer les règles
+        </button>
+        <button
+          type="button"
+          [class.current]="workspaceView() === 'manage'"
+          [attr.aria-current]="workspaceView() === 'manage' ? 'page' : null"
+          (click)="workspaceView.set('manage')"
+        >
+          <span class="tab-index">02</span> Gérer les fichiers
+          <span class="tab-count">{{ sources().length }}</span>
+        </button>
+      </nav>
+
+      @if (workspaceView() === 'manage') {
+        <section class="source-manager" aria-labelledby="source-manager-title">
+          <div class="manager-heading">
+            <div>
+              <p class="eyebrow small"><span class="eyebrow-line"></span> STOCKAGE LOCAL</p>
+              <h2 id="source-manager-title">Jeux de règles</h2>
+              <p class="result-context">
+                Les fichiers restent dans le stockage de ce navigateur. Rien n’est envoyé à un
+                serveur externe.
+              </p>
+            </div>
+            <label class="import-button">
+              <span aria-hidden="true">＋</span> Ajouter des XML
+              <input
+                type="file"
+                accept=".xml,text/xml,application/xml"
+                multiple
+                aria-label="Ajouter des fichiers XML"
+                (change)="onXmlFilesChange($event)"
+              />
+            </label>
+          </div>
+
+          @if (bundledUpdateAvailable()) {
+            <div class="update-notice" role="status">
+              <div>
+                <strong>Une version du fichier intégré est disponible.</strong>
+                <p>
+                  Vos données locales ne sont pas remplacées automatiquement ; les corrections
+                  faites aux adhérents et offres seront conservées.
+                </p>
+              </div>
+              <button class="outline-button" type="button" (click)="updateBundledSource()">
+                Mettre à jour le fichier intégré
+              </button>
+            </div>
+          }
+
+          @if (managementMessage()) {
+            <p class="manager-message" role="status">{{ managementMessage() }}</p>
+          }
+          @if (managementError()) {
+            <pre class="manager-error" role="alert">{{ managementError() }}</pre>
+          }
+
+          <div class="source-list">
+            @for (source of sources(); track source.id) {
+              <article class="source-card">
+                <div class="source-card-heading">
+                  <div>
+                    <p class="source-kicker">
+                      {{ source.origin === 'bundled' ? 'FICHIER INTÉGRÉ' : 'FICHIER IMPORTÉ' }}
+                      <span>· {{ formatCount(sourceRuleCount(source.id)) }} règles</span>
+                    </p>
+                    <h3>{{ source.fileName }}</h3>
+                    @if (source.propertiesFileName) {
+                      <p class="properties-status">
+                        Libellés associés : <code>{{ source.propertiesFileName }}</code>
+                      </p>
+                    } @else {
+                      <p class="properties-status">Libellés de repli : identifiants XML</p>
+                    }
+                  </div>
+                  <button
+                    class="remove-source"
+                    type="button"
+                    (click)="removeSource(source)"
+                    [attr.aria-label]="'Supprimer ' + source.fileName"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+
+                <div class="source-metadata">
+                  <label>
+                    <span>ADHÉRENT</span>
+                    <input
+                      type="text"
+                      [value]="source.adherent"
+                      placeholder="À renseigner"
+                      (change)="onSourceMetadataChange(source, 'adherent', $event)"
+                    />
+                  </label>
+                  <label>
+                    <span>OFFRE</span>
+                    <input
+                      type="text"
+                      [value]="source.offer"
+                      placeholder="À renseigner"
+                      (change)="onSourceMetadataChange(source, 'offer', $event)"
+                    />
+                  </label>
+                  <label class="properties-picker">
+                    <span>{{ source.propertiesFileName ? 'REMPLACER LES LIBELLÉS' : 'FICHIER .PROPERTIES (FACULTATIF)' }}</span>
+                    <input
+                      type="file"
+                      accept=".properties,text/plain"
+                      [attr.aria-label]="'Associer un fichier properties à ' + source.fileName"
+                      (change)="onPropertiesFileChange(source, $event)"
+                    />
+                  </label>
+                </div>
+              </article>
+            } @empty {
+              <div class="empty-state">
+                <span class="empty-glyph" aria-hidden="true">＋</span>
+                <strong>Aucun jeu de règles enregistré</strong>
+                <p>Ajoutez un fichier XML valide pour créer un catalogue local.</p>
+              </div>
+            }
+          </div>
+        </section>
+      } @else {
       <div class="catalog-layout">
         <aside class="navigation-panel" aria-label="Navigation du catalogue">
           <div class="panel-kicker">
@@ -72,23 +205,23 @@
             (click)="selectAllOperations()"
           >
             <span class="nav-symbol all-symbol" aria-hidden="true">⌘</span>
-            <span>Toutes les opérations</span>
+            <span>Tous les modules</span>
             <span class="nav-count">{{ formatCount(catalog()?.rules?.length ?? 0) }}</span>
           </button>
 
-          <p class="nav-section-label">OPÉRATIONS</p>
+          <p class="nav-section-label">MODULES</p>
           <nav class="operation-list">
-            @for (operation of operations(); track operation.id) {
+            @for (operation of operations(); track operation.key ?? operation.id) {
               <button
                 class="operation-link"
-                [class.current]="selectedOperationId() === operation.id && !query()"
+                [class.current]="selectedOperationId() === (operation.key ?? operation.id) && !query()"
                 [attr.aria-current]="
-                  selectedOperationId() === operation.id && !query() ? 'page' : null
+                  selectedOperationId() === (operation.key ?? operation.id) && !query() ? 'page' : null
                 "
                 (click)="selectOperation(operation)"
               >
                 <span class="operation-indicator" aria-hidden="true"></span>
-                <span class="operation-name">{{ operation.label }}</span>
+                <span class="operation-name">{{ operationDisplayLabel(operation) }}</span>
                 <span class="nav-count">{{ operation.ruleCount }}</span>
               </button>
             }
@@ -97,13 +230,13 @@
           @if (selectedOperation(); as operation) {
             <div class="family-block">
               <p class="nav-section-label">
-                FAMILLES <span>· {{ operation.families.length }}</span>
+                RULE-SETS <span>· {{ operation.families.length }}</span>
               </p>
-              @for (family of operation.families; track family.id) {
+              @for (family of operation.families; track family.key ?? family.id) {
                 <button
                   class="family-link"
-                  [class.current]="selectedFamilyId() === family.id && !query()"
-                  (click)="selectFamily(operation, family.id)"
+                  [class.current]="selectedFamilyId() === (family.key ?? family.id) && !query()"
+                  (click)="selectFamily(operation, family)"
                 >
                   <span class="family-mark" aria-hidden="true"></span>
                   <span>{{ family.label }}</span>
@@ -124,15 +257,18 @@
         <section class="catalog-content" aria-label="Catalogue des règles">
           <div class="content-heading">
             <div>
-              <p class="eyebrow small"><span class="eyebrow-line"></span> RÉFÉRENTIEL INITIAL</p>
+              <p class="eyebrow small"><span class="eyebrow-line"></span> CATALOGUE LOCAL</p>
               <h2>{{ heading() }}</h2>
               <p class="result-context">
                 @if (query()) {
-                  Résultats dans toutes les opérations
+                  Résultats dans tous les modules
                 } @else if (selectedFamilyId()) {
-                  Famille {{ selectedFamilyId() }} · {{ selectedOperation()?.label }}
+                  Rule-set {{ selectedFamily()?.label ?? selectedFamilyId() }}
+                  @if (selectedOperation(); as operation) {
+                    · {{ operationDisplayLabel(operation) }}
+                  }
                 } @else if (selectedOperation()) {
-                  {{ selectedOperation()?.families?.length }} familles de règles
+                  {{ selectedOperation()?.families?.length }} rule-sets
                 } @else {
                   Parcourez l’ensemble du catalogue
                 }
@@ -151,7 +287,7 @@
               <input
                 type="search"
                 [value]="query()"
-                placeholder="Rechercher un identifiant, libellé…"
+                placeholder="Rechercher un identifiant, libellé, module, adhérent…"
                 (input)="onSearchInput($event)"
               />
               @if (query()) {
@@ -167,23 +303,23 @@
             </label>
             <div class="filter-divider" aria-hidden="true"></div>
             <label class="select-filter">
-              <span>OPÉRATION</span>
+              <span>MODULE</span>
               <select
                 [value]="operationFilter()"
-                aria-label="Filtrer par opération"
+                aria-label="Filtrer par module"
                 (change)="onOperationFilterChange($event)"
               >
                 <option value="all">Toutes</option>
-                @for (operation of operations(); track operation.id) {
-                  <option [value]="operation.id">{{ operation.label }}</option>
+                @for (operation of operations(); track operation.key ?? operation.id) {
+                  <option [value]="operation.key ?? operation.id">{{ operationDisplayLabel(operation) }}</option>
                 }
               </select>
             </label>
             <label class="select-filter">
-              <span>FAMILLE</span>
+              <span>RULE-SET</span>
               <select
                 [value]="familyFilter()"
-                aria-label="Filtrer par famille"
+                aria-label="Filtrer par rule-set"
                 (change)="onFamilyFilterChange($event)"
               >
                 <option value="all">Toutes</option>
@@ -234,6 +370,59 @@
             <button class="reset-button" (click)="clearFilters()">Réinitialiser</button>
           </div>
 
+          <section class="grouping-panel" aria-label="Regroupement des résultats">
+            <div class="grouping-heading">
+              <span class="field-label">REGROUPER PAR</span>
+              <div class="grouping-add">
+                <select
+                  [value]="newGroupingLevel()"
+                  aria-label="Nouveau niveau de regroupement"
+                  [disabled]="availableGroupingLevels().length === 0"
+                  (change)="onGroupingLevelChange($event)"
+                >
+                  @for (option of availableGroupingLevels(); track option.id) {
+                    <option [value]="option.id">{{ option.label }}</option>
+                  }
+                </select>
+                <button
+                  class="outline-button compact"
+                  type="button"
+                  [disabled]="availableGroupingLevels().length === 0"
+                  (click)="addGroupingLevel()"
+                >
+                  Ajouter
+                </button>
+              </div>
+            </div>
+            <div class="grouping-levels">
+              @for (level of groupingLevels(); track level; let index = $index) {
+                <div class="grouping-chip">
+                  <span class="grouping-order">{{ index + 1 }}</span>
+                  <span>{{ groupingLabel(level) }}</span>
+                  <button
+                    type="button"
+                    [disabled]="index === 0"
+                    [attr.aria-label]="'Monter ' + groupingLabel(level)"
+                    (click)="moveGroupingLevel(index, -1)"
+                  >↑</button>
+                  <button
+                    type="button"
+                    [disabled]="index === groupingLevels().length - 1"
+                    [attr.aria-label]="'Descendre ' + groupingLabel(level)"
+                    (click)="moveGroupingLevel(index, 1)"
+                  >↓</button>
+                  <button
+                    type="button"
+                    [attr.aria-label]="'Retirer ' + groupingLabel(level)"
+                    (click)="removeGroupingLevel(index)"
+                  >×</button>
+                </div>
+              } @empty {
+                <span class="grouping-hint">Aucun regroupement · affichage en liste</span>
+              }
+            </div>
+          </section>
+
           <div class="behavior-legend" aria-label="Légende des niveaux de comportement">
             <span class="field-label">NIVEAUX</span>
             <span class="legend-item behavior-error">
@@ -277,8 +466,27 @@
                 <button class="text-button" (click)="clearFilters()">Effacer les filtres</button>
               </div>
             } @else {
-              <div class="rule-list">
-                @for (rule of displayedRules(); track rule.key) {
+              @if (groupingLevels().length > 0) {
+                <ng-template #renderGroups let-groups let-depth="depth">
+                  <div class="group-tree">
+                    @for (group of groups; track group.key) {
+                      <details class="result-group" [open]="depth === 0">
+                        <summary>
+                          <span class="group-depth">{{ depth + 1 }}</span>
+                          <span class="group-label">{{ group.label }}</span>
+                          <span class="group-count">{{ formatCount(group.count) }}</span>
+                        </summary>
+                        @if (group.children.length > 0) {
+                          <ng-container
+                            [ngTemplateOutlet]="renderGroups"
+                            [ngTemplateOutletContext]="{
+                              $implicit: group.children,
+                              depth: depth + 1,
+                            }"
+                          />
+                        } @else {
+                          <div class="rule-list">
+                            @for (rule of group.rules; track rule.key) {
                   <article class="rule-card">
                     <details class="rule-disclosure">
                       <summary
@@ -356,13 +564,21 @@
                       <div class="secondary-content">
                         <div class="rule-context">
                           <div>
+                            <span class="field-label">FICHIER</span>
+                            <span>{{ rule.sourceName || 'Catalogue local' }}</span>
+                          </div>
+                          <div>
+                            <span class="field-label">ADHÉRENT · OFFRE</span>
+                            <span>{{ rule.adherent || '—' }} · {{ rule.offer || '—' }}</span>
+                          </div>
+                          <div>
                             <span class="field-label">MODULE</span>
                             <span
                               >{{ rule.moduleLabel }} <code>({{ rule.moduleId }})</code></span
                             >
                           </div>
                           <div>
-                            <span class="field-label">RULESET</span>
+                            <span class="field-label">RULE-SET</span>
                             <span
                               >{{ rule.familyLabel }} <code>({{ rule.familyId }})</code></span
                             >
@@ -393,22 +609,121 @@
                     </details>
                   </article>
                 }
+                          </div>
+                        }
+                      </details>
+                    }
+                  </div>
+                </ng-template>
+                <ng-container
+                  [ngTemplateOutlet]="renderGroups"
+                  [ngTemplateOutletContext]="{ $implicit: groupedResults(), depth: 0 }"
+                />
+              } @else {
+                <div class="rule-list">
+                  @for (rule of displayedRules(); track rule.key) {
+                    <article class="rule-card">
+                      <details class="rule-disclosure">
+                        <summary
+                          aria-label="Afficher les informations secondaires de la règle {{ rule.id }}"
+                        >
+                          <div class="rule-overview">
+                            <div class="rule-primary">
+                              <div class="rule-identity">
+                                <div class="rule-id-block">
+                                  <h3 class="rule-id">{{ rule.id }}</h3>
+                                  <span class="rule-ruleset">{{ rule.familyLabel }}</span>
+                                </div>
+                                <span class="active-state" [class.inactive]="!rule.active">
+                                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                                    @if (rule.active) {
+                                      <circle cx="8" cy="8" r="6.25" />
+                                      <path d="m5 8 2 2 4-4" />
+                                    } @else {
+                                      <circle cx="8" cy="8" r="6.25" />
+                                      <path d="m5.5 5.5 5 5m0-5-5 5" />
+                                    }
+                                  </svg>
+                                  {{ rule.active ? 'Active' : 'Inactive' }}
+                                </span>
+                              </div>
+                              <p class="rule-description">
+                                {{ rule.description || 'Aucune description de règle renseignée.' }}
+                              </p>
+                            </div>
+                            <div class="rule-profiles">
+                              @if (profileCount(rule.profiles) === 0) {
+                                <span class="no-profiles">Aucun profil renseigné.</span>
+                              } @else {
+                                <div class="profile-list">
+                                  @for (entry of profileEntries(rule.profiles); track entry[0]) {
+                                    <span class="profile-row">
+                                      <span class="profile-name">{{ entry[0] }}</span>
+                                      <span
+                                        [class]="'behavior-badge ' + getBehaviorClass(entry[1])"
+                                        [attr.aria-label]="entry[1]"
+                                      >{{ entry[1] }}</span>
+                                    </span>
+                                  }
+                                </div>
+                              }
+                            </div>
+                          </div>
+                        </summary>
+                        <div class="secondary-content">
+                          <div class="rule-context">
+                            <div>
+                              <span class="field-label">FICHIER</span>
+                              <span>{{ rule.sourceName || 'Catalogue local' }}</span>
+                            </div>
+                            <div>
+                              <span class="field-label">ADHÉRENT · OFFRE</span>
+                              <span>{{ rule.adherent || '—' }} · {{ rule.offer || '—' }}</span>
+                            </div>
+                            <div>
+                              <span class="field-label">MODULE</span>
+                              <span>{{ rule.moduleLabel }} <code>({{ rule.moduleId }})</code></span>
+                            </div>
+                            <div>
+                              <span class="field-label">RULE-SET</span>
+                              <span>{{ rule.familyLabel }} <code>({{ rule.familyId }})</code></span>
+                            </div>
+                          </div>
+                          @if (rule.messageVariants.length > 0) {
+                            <section class="variant-section">
+                              <h4>Déclinaisons du message</h4>
+                              <dl class="variant-list">
+                                @for (variant of rule.messageVariants; track variant.context) {
+                                  <div><dt>{{ variant.context }}</dt><dd>{{ variant.message }}</dd></div>
+                                }
+                              </dl>
+                            </section>
+                          }
+                          <dl class="variant-list">
+                            <div><dt>Package</dt><dd><code>{{ rule.packageName }}</code></dd></div>
+                          </dl>
+                        </div>
+                      </details>
+                    </article>
+                  }
               </div>
+              }
             }
             @if (displayedRules().length > 0) {
               <div class="list-footer">
                 <span>{{ formatCount(displayedRules().length) }} règles affichées</span>
                 <span class="footer-dot" aria-hidden="true"></span>
-                <span>Catalogue initial</span>
+                <span>Données locales à ce navigateur</span>
               </div>
             }
           </section>
         </section>
       </div>
+      }
     }
     <footer class="page-footer">
-      <span>VETTING DESK <span class="footer-slash">/</span> CATALOGUE INITIAL</span>
-      <span>Données de démonstration · Lecture seule</span>
+      <span>VETTING DESK <span class="footer-slash">/</span> CATALOGUE LOCAL</span>
+      <span>Consultation seule · Stockage dans ce navigateur</span>
     </footer>
   </main>
 </div>

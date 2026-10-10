@@ -9,13 +9,15 @@ Le choix confirmé pour la proposition est un jeu de données de démonstration 
 **Goals:**
 - Fournir un catalogue consultable en français, navigable par opération et famille.
 - Permettre recherche et filtres combinables sur un volume de quelques milliers d’occurrences.
+- Importer plusieurs fichiers XML conformes au format de règles et les consulter ensemble.
+- Regrouper les occurrences selon des dimensions configurables : fichier, adhérent, offre, module et rule-set.
+- Conserver les catalogues et leurs libellés associés localement dans le navigateur, sans base de données externe.
 - Conserver les profils, l’état actif et le contexte de chaque occurrence.
 - Rendre explicites les absences de traduction et les erreurs de chargement.
 
 **Non-Goals:**
 - Modifier, activer ou désactiver les règles.
 - Ajouter une API ou un contrôle d’accès côté serveur dans cette évolution.
-- Charger les autres fichiers présents dans `private/vetting-old` ou fournir un import arbitraire de fichiers utilisateur.
 - Traduire les identifiants ou inventer des libellés manquants.
 
 ## Decisions
@@ -28,13 +30,25 @@ Le choix confirmé pour la proposition est un jeu de données de démonstration 
 
 4. **Traiter explicitement l’encodage et la syntaxe Java properties.** Le chargement devra gérer le format réel du fichier, les commentaires, séparateurs, échappements et éventuelles continuations de lignes ; il ne devra pas supposer qu’un simple découpage naïf sur `=` suffit. Si nécessaire, normaliser les ressources dédiées en UTF-8 tout en préservant les caractères et la sémantique des propriétés.
 
+   À l’import depuis le navigateur, décoder d’abord les fichiers UTF-8 (avec ou sans BOM) et UTF-16 avec BOM ; si les octets ne forment pas un UTF-8 valide, les interpréter en Windows-1252 pour les exports historiques français. Refuser explicitement un texte qui contient déjà le caractère de remplacement Unicode, car les caractères perdus ne peuvent pas être reconstruits. Décoder aussi les références numériques HTML dans les valeurs (`&#124;` → `|`) afin que les opérateurs et séparateurs soient lisibles.
+
 5. **Afficher une erreur de données distincte d’un catalogue valide vide.** Les erreurs réseau, XML invalide ou propriétés non interprétables doivent produire un état visible, sans masquer la cause derrière des données vides.
+
+6. **Stocker les catalogues ajoutés dans IndexedDB, dans l’origine du navigateur.** Le stockage conserve le XML, les propriétés associées et les métadonnées adhérent/offre. Il n’y a ni API d’import ni base distante ; supprimer les données du site dans le navigateur peut effacer ces catalogues.
+
+7. **Gérer le fichier livré comme un jeu de règles local initial.** Il est copié dans IndexedDB au premier lancement et peut ensuite être supprimé comme les autres jeux. Une version embarquée différente est signalée ; elle n’écrase pas les données locales sans action explicite.
+
+8. **Valider les imports avant leur enregistrement.** Plusieurs XML peuvent être sélectionnés ensemble ; chaque document doit respecter la structure `vetting-configuration`. Les doublons de nom proposent un remplacement confirmé. Les fichiers `.properties` sont associés ensuite depuis l’écran de gestion, un par jeu de règles ; en leur absence, les identifiants XML restent les libellés de repli.
+
+9. **Déduire adhérent et offre du nom de fichier quand il suit la convention `<adhérent>_<offre>_vetting_rules.xml`.** Ces valeurs restent modifiables et servent à la recherche et aux regroupements. Les niveaux de regroupement sont empilables et réordonnables ; le parcours initial reste module puis rule-set.
 
 ## Risks / Trade-offs
 
 - [Les fichiers sous `public/vetting-data/` sont servis aux utilisateurs et peuvent être récupérés] → Ne copier ni publier les fichiers avant validation de leur autorisation de diffusion ; si elle n’est pas acquise, réviser l’approche et proposer une API protégée.
 - [Les copies publiques peuvent diverger des originaux privés lors d’une mise à jour] → Faire de la copie depuis les deux chemins sources une étape explicite et vérifiable ; conserver les noms et la paire de fichiers prévus, sans charger le répertoire privé à l’exécution.
 - [Un parseur properties incomplet ou un mauvais décodage altère les libellés français] → Vérifier l’encodage source et couvrir les échappements, commentaires, continuations et caractères accentués avec des tests représentatifs.
+- [Les données IndexedDB restent propres à un navigateur et peuvent être effacées par celui-ci] → Indiquer clairement le stockage local, ne jamais prétendre que les données sont synchronisées ou sauvegardées, et afficher toute erreur de quota ou de persistance.
+- [Les noms XML ne suivent pas toujours la convention adhérent/offre] → Préremplir seulement lorsqu’elle est reconnue et laisser les champs métier corrigeables.
 - [Les doublons d’identifiant produisent des résultats visuellement répétés] → Afficher l’opération et la famille dans les résultats et détails, et traiter chaque occurrence séparément.
 - [Le volume peut rendre une liste longue difficile à parcourir] → Filtrer côté client sur le modèle chargé et garder les interactions de recherche réactives ; évaluer la virtualisation si les essais d’usage montrent un besoin.
 
@@ -43,7 +57,8 @@ Le choix confirmé pour la proposition est un jeu de données de démonstration 
 1. Confirmer l’autorisation de diffuser les deux fichiers, puis copier uniquement `private/vetting-old/crca_initial_vetting_rules.xml` et `private/vetting-old/Vetting_fr_FR.properties` vers `public/vetting-data/`.
 2. Ajouter le chargement des copies sous `public/vetting-data/`, leur interprétation, le modèle typé et les tests de traduction et de structure.
 3. Remplacer l’écran placeholder par la navigation, la recherche, les filtres et le détail.
-4. Vérifier le build et les scénarios du catalogue avant déploiement.
+4. Ajouter la gestion locale des jeux XML/properties, les métadonnées adhérent/offre et les regroupements configurables.
+5. Vérifier le build et les scénarios du catalogue avant déploiement.
 
 Le retour arrière consiste à rétablir l’écran Angular précédent et à retirer les ressources de démonstration de la distribution. Aucune migration serveur n’est prévue.
 

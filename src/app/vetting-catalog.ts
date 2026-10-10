@@ -2,8 +2,10 @@ export interface VettingRule {
   readonly key: string;
   readonly moduleId: string;
   readonly moduleLabel: string;
+  readonly operationKey?: string;
   readonly familyId: string;
   readonly familyLabel: string;
+  readonly familyKey?: string;
   readonly packageName: string;
   readonly id: string;
   readonly label: string;
@@ -11,6 +13,10 @@ export interface VettingRule {
   readonly messageVariants: readonly RuleMessageVariant[];
   readonly active: boolean;
   readonly profiles: Readonly<Record<string, string>>;
+  readonly sourceId?: string;
+  readonly sourceName?: string;
+  readonly adherent?: string;
+  readonly offer?: string;
 }
 
 export interface RuleMessageVariant {
@@ -20,6 +26,7 @@ export interface RuleMessageVariant {
 
 export interface RuleFamily {
   readonly id: string;
+  readonly key?: string;
   readonly hasDeclaredId: boolean;
   readonly label: string;
   readonly packageName: string;
@@ -28,9 +35,14 @@ export interface RuleFamily {
 
 export interface VettingOperation {
   readonly id: string;
+  readonly key?: string;
   readonly label: string;
   readonly families: readonly RuleFamily[];
   readonly ruleCount: number;
+  readonly sourceId?: string;
+  readonly sourceName?: string;
+  readonly adherent?: string;
+  readonly offer?: string;
 }
 
 export interface VettingCatalog {
@@ -38,6 +50,13 @@ export interface VettingCatalog {
   readonly rules: readonly VettingRule[];
   readonly profiles: readonly string[];
   readonly behaviors: readonly string[];
+}
+
+export interface VettingSourceMetadata {
+  readonly id: string;
+  readonly fileName: string;
+  readonly adherent: string;
+  readonly offer: string;
 }
 
 function localElements(parent: Element, localName: string): Element[] {
@@ -109,6 +128,7 @@ export function parseVettingXml(xmlText: string): VettingOperation[] {
 
       return {
         id: familyId,
+        key: `${id}::${familyId}`,
         hasDeclaredId: Boolean(declaredFamilyId),
         label: familyLabel,
         packageName,
@@ -118,6 +138,7 @@ export function parseVettingXml(xmlText: string): VettingOperation[] {
 
     return {
       id,
+      key: id,
       label: id,
       families,
       ruleCount: families.reduce((count, family) => count + family.rules.length, 0),
@@ -126,6 +147,9 @@ export function parseVettingXml(xmlText: string): VettingOperation[] {
 
   if (operations.length === 0) {
     throw new Error('Le fichier XML ne contient aucune opération.');
+  }
+  if (!operations.some((operation) => operation.ruleCount > 0)) {
+    throw new Error('Le fichier XML ne contient aucune occurrence de règle.');
   }
 
   return operations;
@@ -189,6 +213,24 @@ function unescapeProperty(value: string, lineNumber: number): string {
   return result;
 }
 
+function decodeNumericHtmlEntities(value: string): string {
+  return value.replace(/&#(x[\da-f]+|\d+);/gi, (entity, encodedCode: string) => {
+    const codePoint =
+      encodedCode[0].toLowerCase() === 'x'
+        ? Number.parseInt(encodedCode.slice(1), 16)
+        : Number.parseInt(encodedCode, 10);
+    if (
+      !Number.isInteger(codePoint) ||
+      codePoint < 0 ||
+      codePoint > 0x10ffff ||
+      (codePoint >= 0xd800 && codePoint <= 0xdfff)
+    ) {
+      return entity;
+    }
+    return String.fromCodePoint(codePoint);
+  });
+}
+
 function parsePropertyLine(line: string, lineNumber: number): [string, string] | null {
   let start = 0;
   while (start < line.length && /[\t\f ]/.test(line[start])) {
@@ -227,7 +269,7 @@ function parsePropertyLine(line: string, lineNumber: number): [string, string] |
 
   return [
     unescapeProperty(rawKey, lineNumber),
-    unescapeProperty(line.slice(valueStart), lineNumber),
+    decodeNumericHtmlEntities(unescapeProperty(line.slice(valueStart), lineNumber)),
   ];
 }
 
@@ -280,14 +322,30 @@ export function parseJavaProperties(source: string): Map<string, string> {
   return properties;
 }
 
-export function buildVettingCatalog(xmlText: string, propertiesText: string): VettingCatalog {
-  const properties = parseJavaProperties(propertiesText);
+export function buildVettingCatalog(
+  xmlText: string,
+  propertiesText = '',
+  source?: VettingSourceMetadata,
+): VettingCatalog {
+  const properties: Map<string, string> = propertiesText.trim()
+    ? parseJavaProperties(propertiesText)
+    : new Map<string, string>();
+  const sourceId = source?.id ?? 'catalog';
   const operations = parseVettingXml(xmlText).map((operation) => {
     const operationLabel = properties.get(`module.${operation.id}`) ?? operation.id;
+    const operationKey = `${sourceId}::${operation.id}`;
     const families = operation.families.map((family) => ({
       ...family,
+      key: `${operationKey}::${family.id}`,
       rules: family.rules.map((rule) => ({
         ...rule,
+        key: `${sourceId}::${rule.key}`,
+        operationKey,
+        familyKey: `${operationKey}::${family.id}`,
+        sourceId,
+        sourceName: source?.fileName ?? '',
+        adherent: source?.adherent ?? '',
+        offer: source?.offer ?? '',
         moduleLabel: operationLabel,
         label: properties.get(rule.id) ?? rule.id,
         description: properties.get(`${rule.id}.description`) ?? null,
@@ -307,7 +365,12 @@ export function buildVettingCatalog(xmlText: string, propertiesText: string): Ve
 
     return {
       ...operation,
+      key: operationKey,
       label: operationLabel,
+      sourceId,
+      sourceName: source?.fileName ?? '',
+      adherent: source?.adherent ?? '',
+      offer: source?.offer ?? '',
       families,
       ruleCount: families.reduce((count, family) => count + family.rules.length, 0),
     };

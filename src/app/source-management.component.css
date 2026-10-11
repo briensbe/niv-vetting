@@ -1,8 +1,9 @@
 .source-manager {
   padding: clamp(16px, 3vw, 30px);
-  border: 1px solid #e3e4da;
-  background: rgb(255 254 250 / 88%);
-  box-shadow: 0 8px 26px rgb(31 51 40 / 3%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
 }
 
 .manager-heading,
@@ -25,24 +26,26 @@
   justify-content: center;
   gap: 8px;
   min-height: 38px;
-  padding: 0 13px;
-  border: 1px solid #a9bcae;
-  background: #edf2ec;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--bg-surface-subtle);
   color: var(--ink);
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   transition: background 150ms ease, border-color 150ms ease;
 }
 
 .import-button:hover,
 .outline-button:hover:not(:disabled) {
-  border-color: var(--green);
-  background: #e2ece3;
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
 }
 
 .import-button > span {
-  color: var(--orange);
+  color: var(--primary);
   font-size: 18px;
 }
 
@@ -73,10 +76,12 @@
 }
 
 .source-card {
-  padding: 17px 18px 15px;
-  border: 1px solid #e6e7de;
-  border-left: 3px solid #a8bca9;
-  background: #fffefa;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--primary);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
 }
 
 .source-card-heading {
@@ -85,10 +90,11 @@
 
 .source-card-heading h3 {
   margin: 2px 0 4px;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 19px;
-  font-weight: 400;
-  letter-spacing: -0.02em;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 

@@ -1,12 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, effect, inject, OnInit, PendingTasks, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, computed, effect, inject, OnInit, PendingTasks, signal } from '@angular/core';
 import { VettingCatalogService, VettingCatalogWorkspace } from './vetting-catalog.service';
 import { RuleFamily, VettingOperation, VettingRule } from './vetting-catalog';
 import { StoredVettingSource } from './vetting-catalog-storage';
 import { createRuleGroups, GroupLevel, RuleGroup } from './rule-grouping';
 import { RuleComparisonComponent } from './rule-comparison.component';
 import { SourceManagementComponent } from './source-management.component';
+import { TreeSelectComponent } from './tree-select.component';
+import { TreeNode } from './tree-select.model';
 import {
   compareVettingRules,
   ComparisonSummary,
@@ -35,7 +37,7 @@ const groupOptions: readonly GroupOption[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [NgTemplateOutlet, RuleComparisonComponent, SourceManagementComponent],
+  imports: [NgTemplateOutlet, RuleComparisonComponent, SourceManagementComponent, TreeSelectComponent],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
@@ -49,13 +51,10 @@ export class App implements OnInit {
   protected readonly errorMessage = signal('');
   protected readonly workspaceView = signal<WorkspaceView>('catalog');
   protected readonly query = signal('');
-  protected readonly selectedOperationId = signal<string | null>(null);
-  protected readonly selectedFamilyId = signal<string | null>(null);
-  protected readonly operationFilter = signal('all');
-  protected readonly familyFilter = signal('all');
+  protected readonly selectedRuleSetKeys = signal<ReadonlySet<string>>(new Set<string>());
+  protected readonly severityFilter = signal<'all' | string>('all');
   protected readonly activeFilter = signal<'all' | 'active' | 'inactive'>('all');
   protected readonly profileFilter = signal('all');
-  protected readonly behaviorFilter = signal('all');
   protected readonly groupingLevels = signal<GroupLevel[]>(['file', 'module', 'ruleSet']);
   protected readonly expandedGroupDepth = signal(1);
   protected readonly expandedGroupOverrides = signal<ReadonlyMap<string, boolean>>(new Map());
@@ -85,39 +84,43 @@ export class App implements OnInit {
     const rulesB = rules.filter((rule) => rule.sourceId === sources[1].id);
     return compareVettingRules(rulesA, rulesB).summary;
   });
-  protected readonly familyOptions = computed(() =>
-    this.operations().flatMap((operation) =>
-      operation.families.map((family) => {
-        const familyLabel = family.hasDeclaredId ? family.id : `(${operation.label})`;
-        const operationLabel = this.operationDisplayLabel(operation);
+  protected readonly treeNodes = computed<TreeNode[]>(() => {
+    const sources = this.sources();
+    const operations = this.operations();
+
+    return sources.map((source) => {
+      const sourceOps = operations.filter(
+        (op) => op.sourceId === source.id || (!op.sourceId && source.origin === 'bundled'),
+      );
+      const sourceRuleCount = sourceOps.reduce((sum, op) => sum + op.ruleCount, 0);
+
+      const opNodes: TreeNode[] = sourceOps.map((op) => {
+        const familyNodes: TreeNode[] = op.families.map((fam) => ({
+          id: fam.key ?? `${op.key ?? op.id}::${fam.id}`,
+          label: fam.label,
+          depth: 2,
+          ruleCount: fam.rules.length,
+        }));
+
         return {
-          key: family.key ?? `${operation.key ?? operation.id}::${family.id}`,
-          label:
-            operationLabel === operation.label
-              ? familyLabel
-              : `${familyLabel} · ${operationLabel}`,
+          id: op.key ?? `${source.id}::${op.id}`,
+          label: op.label,
+          depth: 1,
+          ruleCount: op.ruleCount,
+          children: familyNodes,
         };
-      }),
-    ),
-  );
-  protected readonly selectedOperation = computed(
-    () =>
-      this.operations().find(
-        (operation) => (operation.key ?? operation.id) === this.selectedOperationId(),
-      ) ?? null,
-  );
-  protected readonly operationDisplayLabel = (operation: VettingOperation): string => {
-    const occurrences = this.operations().filter((item) => item.id === operation.id);
-    return occurrences.length > 1
-      ? `${operation.label} · ${operation.sourceName}`
-      : operation.label;
-  };
-  protected readonly selectedFamily = computed(
-    () =>
-      this.selectedOperation()?.families.find(
-        (family) => (family.key ?? family.id) === this.selectedFamilyId(),
-      ) ?? null,
-  );
+      });
+
+      return {
+        id: source.id,
+        label: `${source.fileName}${source.adherent ? ` (${source.adherent})` : ''}`,
+        depth: 0,
+        ruleCount: sourceRuleCount,
+        children: opNodes,
+      };
+    });
+  });
+
   protected readonly displayedRules = computed(() => {
     const catalog = this.catalog();
     if (!catalog) {
@@ -125,35 +128,22 @@ export class App implements OnInit {
     }
 
     const query = this.normalize(this.query().trim());
+    const selectedKeys = this.selectedRuleSetKeys();
+    const active = this.activeFilter();
+    const profile = this.profileFilter();
+    const severity = this.severityFilter();
+
     return catalog.rules.filter((rule) => {
-      if (
-        this.operationFilter() !== 'all' &&
-        rule.operationKey !== this.operationFilter() &&
-        rule.moduleId !== this.operationFilter()
-      ) {
-        return false;
-      }
-      if (
-        this.familyFilter() !== 'all' &&
-        (rule.familyKey ?? `${rule.moduleId}::${rule.familyId}`) !== this.familyFilter()
-      ) {
-        return false;
+      // 1. Filtrage arborescent (Fichier -> Module -> Rule-set)
+      if (selectedKeys.size > 0) {
+        const familyKey = rule.familyKey ?? `${rule.operationKey ?? rule.moduleId}::${rule.familyId}`;
+        if (!selectedKeys.has(familyKey)) {
+          return false;
+        }
       }
 
-      if (!query) {
-        if (
-          this.selectedOperationId() &&
-          (rule.operationKey ?? rule.moduleId) !== this.selectedOperationId()
-        ) {
-          return false;
-        }
-        if (
-          this.selectedFamilyId() &&
-          (rule.familyKey ?? rule.familyId) !== this.selectedFamilyId()
-        ) {
-          return false;
-        }
-      } else {
+      // 2. Filtrage textuel global
+      if (query) {
         const searchable = this.normalize(
           [
             rule.id,
@@ -177,28 +167,59 @@ export class App implements OnInit {
         }
       }
 
-      if (this.activeFilter() === 'active' && !rule.active) {
+      // 3. Filtrage par état actif
+      if (active === 'active' && !rule.active) {
         return false;
       }
-      if (this.activeFilter() === 'inactive' && rule.active) {
+      if (active === 'inactive' && rule.active) {
         return false;
       }
 
-      const profile = this.profileFilter();
-      if (profile !== 'all' && !(profile in rule.profiles)) {
-        return false;
+      // 4. Filtrage par sévérité globale et profil
+      if (severity !== 'all') {
+        if (profile !== 'all') {
+          // Profil spécifique + sévérité
+          if (rule.profiles[profile] !== severity) {
+            return false;
+          }
+        } else {
+          // Sévérité globale décorrélée du profil (au moins un profil correspond)
+          const behaviors = Object.values(rule.profiles);
+          if (!behaviors.includes(severity)) {
+            return false;
+          }
+        }
+      } else if (profile !== 'all') {
+        // Profil seul sans sévérité imposée
+        if (!(profile in rule.profiles)) {
+          return false;
+        }
       }
-      const behavior = this.behaviorFilter();
-      return behavior === 'all' || rule.profiles[profile] === behavior;
+
+      return true;
     });
   });
+
   protected readonly heading = computed(() => {
     if (this.query().trim()) {
       return 'Résultats de recherche';
     }
-    const operation = this.selectedOperation();
-    return operation ? this.operationDisplayLabel(operation) : 'Toutes les règles';
+    return 'Toutes les règles';
   });
+
+  private readonly elementRef = inject(ElementRef);
+
+  @HostListener('window:keydown', ['$event'])
+  handleKeyboardShortcut(event: KeyboardEvent): void {
+    if (
+      (event.key === '/' || (event.key.toLowerCase() === 'k' && (event.ctrlKey || event.metaKey))) &&
+      !(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
+    ) {
+      event.preventDefault();
+      const input = this.elementRef.nativeElement.querySelector('.hero-search-input') as HTMLInputElement | null;
+      input?.focus();
+    }
+  }
 
   ngOnInit(): void {
     void this.refreshWorkspace(true);
@@ -249,49 +270,24 @@ export class App implements OnInit {
     });
   }
 
-  protected selectOperation(operation: VettingOperation): void {
-    this.selectedOperationId.set(operation.key ?? operation.id);
-    this.selectedFamilyId.set(null);
+  protected onTreeSelectionChange(keys: ReadonlySet<string>): void {
+    this.selectedRuleSetKeys.set(keys);
   }
 
-  protected selectAllOperations(): void {
-    this.selectedOperationId.set(null);
-    this.selectedFamilyId.set(null);
-  }
-
-  protected selectFamily(operation: VettingOperation, family: RuleFamily): void {
-    this.selectedOperationId.set(operation.key ?? operation.id);
-    this.selectedFamilyId.set(
-      family.key ?? `${operation.key ?? operation.id}::${family.id}`,
-    );
+  protected onSeverityFilterChange(event: Event): void {
+    this.severityFilter.set((event.target as HTMLSelectElement).value);
   }
 
   protected onSearchInput(event: Event): void {
     this.query.set((event.target as HTMLInputElement).value);
   }
 
-  protected onActiveFilterChange(event: Event): void {
-    this.activeFilter.set(
-      (event.target as HTMLSelectElement).value as 'all' | 'active' | 'inactive',
-    );
+  protected onActiveFilterChange(value: 'all' | 'active' | 'inactive'): void {
+    this.activeFilter.set(value);
   }
 
   protected onProfileFilterChange(event: Event): void {
     this.profileFilter.set((event.target as HTMLSelectElement).value);
-    this.behaviorFilter.set('all');
-  }
-
-  protected onOperationFilterChange(event: Event): void {
-    this.operationFilter.set((event.target as HTMLSelectElement).value);
-    this.familyFilter.set('all');
-  }
-
-  protected onFamilyFilterChange(event: Event): void {
-    this.familyFilter.set((event.target as HTMLSelectElement).value);
-  }
-
-  protected onBehaviorFilterChange(event: Event): void {
-    this.behaviorFilter.set((event.target as HTMLSelectElement).value);
   }
 
   protected onGroupingLevelChange(event: Event): void {
@@ -374,12 +370,20 @@ export class App implements OnInit {
 
   protected clearFilters(): void {
     this.query.set('');
-    this.operationFilter.set('all');
-    this.familyFilter.set('all');
+    this.selectedRuleSetKeys.set(new Set<string>());
     this.activeFilter.set('all');
     this.profileFilter.set('all');
-    this.behaviorFilter.set('all');
-    this.selectAllOperations();
+    this.severityFilter.set('all');
+  }
+
+  protected clearTreeSelection(): void {
+    this.selectedRuleSetKeys.set(new Set<string>());
+  }
+
+  protected removeTreeSelectionKey(key: string): void {
+    const next = new Set(this.selectedRuleSetKeys());
+    next.delete(key);
+    this.selectedRuleSetKeys.set(next);
   }
 
   private static readonly numberFormatter = new Intl.NumberFormat('fr-FR');
@@ -438,50 +442,11 @@ export class App implements OnInit {
     try {
       const workspace = await this.catalogService.load();
       this.workspace.set(workspace);
-      const operationKeys = new Set(
-        workspace.catalog.operations.map((operation) => operation.key ?? operation.id),
-      );
-      const selectedOperationId = this.selectedOperationId();
-      if (selectedOperationId && !operationKeys.has(selectedOperationId)) {
-        this.selectAllOperations();
-      }
-      const familyKeys = new Set(
-        workspace.catalog.operations.flatMap((operation) =>
-          operation.families.map(
-            (family) => family.key ?? `${operation.key ?? operation.id}::${family.id}`,
-          ),
-        ),
-      );
-      const selectedFamilyId = this.selectedFamilyId();
-      if (selectedFamilyId && !familyKeys.has(selectedFamilyId)) {
-        this.selectedFamilyId.set(null);
-      }
-      if (
-        this.operationFilter() !== 'all' &&
-        !operationKeys.has(this.operationFilter()) &&
-        !workspace.catalog.rules.some((rule) => rule.moduleId === this.operationFilter())
-      ) {
-        this.operationFilter.set('all');
-      }
-      if (
-        this.familyFilter() !== 'all' &&
-        !familyKeys.has(this.familyFilter()) &&
-        !workspace.catalog.rules.some((rule) => rule.familyId === this.familyFilter())
-      ) {
-        this.familyFilter.set('all');
-      }
       if (
         this.profileFilter() !== 'all' &&
         !workspace.catalog.profiles.includes(this.profileFilter())
       ) {
         this.profileFilter.set('all');
-        this.behaviorFilter.set('all');
-      }
-      if (
-        this.behaviorFilter() !== 'all' &&
-        !workspace.catalog.behaviors.includes(this.behaviorFilter())
-      ) {
-        this.behaviorFilter.set('all');
       }
       this.loadingState.set('ready');
       this.errorMessage.set('');

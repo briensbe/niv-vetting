@@ -105,182 +105,173 @@
           (navigateToManage)="workspaceView.set('manage')"
         />
       } @else {
-      <div class="catalog-layout">
-        <aside class="navigation-panel" aria-label="Navigation du catalogue">
-          <div class="panel-kicker">
-            <span>01</span>
-            <span>PARCOURS</span>
-          </div>
-          <button
-            class="all-operations"
-            [class.current]="!selectedOperationId() && !query()"
-            (click)="selectAllOperations()"
-          >
-            <span class="nav-symbol all-symbol" aria-hidden="true">⌘</span>
-            <span>Tous les modules</span>
-            <span class="nav-count">{{ formatCount(catalog()?.rules?.length ?? 0) }}</span>
-          </button>
-
-          <p class="nav-section-label">MODULES</p>
-          <nav class="operation-list">
-            @for (operation of operations(); track operation.key ?? operation.id) {
-              <button
-                class="operation-link"
-                [class.current]="selectedOperationId() === (operation.key ?? operation.id) && !query()"
-                [attr.aria-current]="
-                  selectedOperationId() === (operation.key ?? operation.id) && !query() ? 'page' : null
-                "
-                (click)="selectOperation(operation)"
-              >
-                <span class="operation-indicator" aria-hidden="true"></span>
-                <span class="operation-name">{{ operationDisplayLabel(operation) }}</span>
-                <span class="nav-count">{{ operation.ruleCount }}</span>
-              </button>
-            }
-          </nav>
-
-          @if (selectedOperation(); as operation) {
-            <div class="family-block">
-              <p class="nav-section-label">
-                RULE-SETS <span>· {{ operation.families.length }}</span>
-              </p>
-              @for (family of operation.families; track family.key ?? family.id) {
-                <button
-                  class="family-link"
-                  [class.current]="selectedFamilyId() === (family.key ?? family.id) && !query()"
-                  (click)="selectFamily(operation, family)"
-                >
-                  <span class="family-mark" aria-hidden="true"></span>
-                  <span>{{ family.label }}</span>
-                  <span class="nav-count">{{ family.rules.length }}</span>
-                </button>
-              }
-            </div>
-          }
-          <div class="sidebar-note">
-            <span class="note-mark" aria-hidden="true">i</span>
-            <p>
-              La recherche globale parcourt toutes les opérations, même lorsqu’un parcours est
-              sélectionné.
-            </p>
-          </div>
-        </aside>
-
+      <div class="catalog-full-layout">
         <section class="catalog-content" aria-label="Catalogue des règles">
-          <div class="content-heading">
-            <div>
-              <p class="eyebrow small"><span class="eyebrow-line"></span> CATALOGUE LOCAL</p>
-              <h2>{{ heading() }}</h2>
-              <p class="result-context">
-                @if (query()) {
-                  Résultats dans tous les modules
-                } @else if (selectedFamilyId()) {
-                  Rule-set {{ selectedFamily()?.label ?? selectedFamilyId() }}
-                  @if (selectedOperation(); as operation) {
-                    · {{ operationDisplayLabel(operation) }}
-                  }
-                } @else if (selectedOperation()) {
-                  {{ selectedOperation()?.families?.length }} rule-sets
-                } @else {
-                  Parcourez l’ensemble du catalogue
-                }
-              </p>
-            </div>
-            <div class="result-counter">
-              <strong>{{ formatCount(displayedRules().length) }}</strong>
-              <span>occurrences</span>
-            </div>
-          </div>
-
-          <div class="filter-panel">
-            <label class="search-field">
-              <span class="search-icon" aria-hidden="true"></span>
-              <span class="visually-hidden">Rechercher une règle</span>
+          <!-- Recherche globale mise en avant -->
+          <div class="hero-search-wrapper">
+            <div class="hero-search-bar">
+              <svg class="hero-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
               <input
+                #globalSearchInput
                 type="search"
+                class="hero-search-input"
                 [value]="query()"
-                placeholder="Rechercher un identifiant, libellé, module, adhérent…"
+                placeholder="Rechercher par identifiant, libellé, texte d'erreur, profil… (Ctrl+K ou /)"
                 (input)="onSearchInput($event)"
               />
               @if (query()) {
                 <button
-                  class="clear-search"
+                  type="button"
+                  class="clear-hero-search"
                   aria-label="Effacer la recherche"
                   (click)="query.set('')"
                 >
                   ×
                 </button>
               }
-              <kbd>⌕</kbd>
-            </label>
-            <div class="filter-divider" aria-hidden="true"></div>
-            <label class="select-filter">
-              <span>MODULE</span>
-              <select
-                [value]="operationFilter()"
-                aria-label="Filtrer par module"
-                (change)="onOperationFilterChange($event)"
-              >
-                <option value="all">Toutes</option>
-                @for (operation of operations(); track operation.key ?? operation.id) {
-                  <option [value]="operation.key ?? operation.id">{{ operationDisplayLabel(operation) }}</option>
-                }
-              </select>
-            </label>
-            <label class="select-filter">
-              <span>RULE-SET</span>
-              <select
-                [value]="familyFilter()"
-                aria-label="Filtrer par rule-set"
-                (change)="onFamilyFilterChange($event)"
-              >
-                <option value="all">Toutes</option>
-                @for (family of familyOptions(); track family.key) {
-                  <option [value]="family.key">{{ family.label }}</option>
-                }
-              </select>
-            </label>
-            <label class="select-filter">
-              <span>ÉTAT</span>
-              <select
-                [value]="activeFilter()"
-                aria-label="Filtrer par état actif"
-                (change)="onActiveFilterChange($event)"
-              >
-                <option value="all">Tous</option>
-                <option value="active">Actives</option>
-                <option value="inactive">Inactives</option>
-              </select>
-            </label>
-            <label class="select-filter">
-              <span>PROFIL</span>
-              <select
-                [value]="profileFilter()"
-                aria-label="Filtrer par profil"
-                (change)="onProfileFilterChange($event)"
-              >
-                <option value="all">Tous</option>
-                @for (profile of catalog()?.profiles ?? []; track profile) {
-                  <option [value]="profile">{{ profile }}</option>
-                }
-              </select>
-            </label>
-            <label class="select-filter behavior-filter">
-              <span>COMPORTEMENT</span>
-              <select
-                [value]="behaviorFilter()"
-                aria-label="Filtrer par comportement de profil"
-                [disabled]="profileFilter() === 'all'"
-                (change)="onBehaviorFilterChange($event)"
-              >
-                <option value="all">Tous</option>
-                @for (behavior of catalog()?.behaviors ?? []; track behavior) {
-                  <option [value]="behavior">{{ behavior }}</option>
-                }
-              </select>
-            </label>
-            <button class="reset-button" (click)="clearFilters()">Réinitialiser</button>
+              <kbd class="search-shortcut-badge">/</kbd>
+            </div>
           </div>
+          <div class="content-heading">
+            <div>
+              <p class="eyebrow small"><span class="eyebrow-line"></span> CATALOGUE LOCAL</p>
+              <h2>{{ heading() }}</h2>
+              <p class="result-context">
+                @if (query()) {
+                  Résultats de recherche
+                } @else {
+                  Parcourez l’ensemble du catalogue
+                }
+              </p>
+            </div>
+          </div>
+
+          <!-- Barre d'outils et filtres -->
+          <div class="filter-toolbar">
+            <div class="filter-controls-group">
+              <!-- Tree Select Fichiers & Modules -->
+              <app-tree-select
+                [tree]="treeNodes()"
+                [selectedRuleSetKeys]="selectedRuleSetKeys()"
+                (selectionChange)="onTreeSelectionChange($event)"
+              />
+
+              <!-- Sévérité Globale (décorrélée du profil) -->
+              <div class="toolbar-select-wrapper">
+                <label for="severity-filter" class="toolbar-label">SÉVÉRITÉ</label>
+                <select
+                  id="severity-filter"
+                  class="toolbar-select"
+                  [value]="severityFilter()"
+                  (change)="onSeverityFilterChange($event)"
+                >
+                  <option value="all">Toutes</option>
+                  <option value="ERROR">ERROR (Bloquant)</option>
+                  <option value="WARNING">WARNING (Avertissement)</option>
+                  <option value="IGNORE">IGNORE (Ignoré)</option>
+                </select>
+              </div>
+
+              <!-- Profil utilisateur (affineur) -->
+              <div class="toolbar-select-wrapper">
+                <label for="profile-filter" class="toolbar-label">PROFIL</label>
+                <select
+                  id="profile-filter"
+                  class="toolbar-select"
+                  [value]="profileFilter()"
+                  (change)="onProfileFilterChange($event)"
+                >
+                  <option value="all">Tous les profils</option>
+                  @for (profile of catalog()?.profiles ?? []; track profile) {
+                    <option [value]="profile">{{ profile }}</option>
+                  }
+                </select>
+              </div>
+
+              <!-- Segmented Control État Actif/Inactif -->
+              <div class="segmented-control" role="radiogroup" aria-label="Filtrer par état">
+                <button
+                  type="button"
+                  class="segment-btn"
+                  [class.active]="activeFilter() === 'all'"
+                  (click)="onActiveFilterChange('all')"
+                >
+                  Tous
+                </button>
+                <button
+                  type="button"
+                  class="segment-btn"
+                  [class.active]="activeFilter() === 'active'"
+                  (click)="onActiveFilterChange('active')"
+                >
+                  Actives
+                </button>
+                <button
+                  type="button"
+                  class="segment-btn"
+                  [class.active]="activeFilter() === 'inactive'"
+                  (click)="onActiveFilterChange('inactive')"
+                >
+                  Inactives
+                </button>
+              </div>
+            </div>
+
+            <div class="toolbar-meta-group">
+              <span class="results-badge">
+                <strong>{{ formatCount(displayedRules().length) }}</strong> occurrences
+              </span>
+              @if (selectedRuleSetKeys().size > 0 || query() || activeFilter() !== 'all' || profileFilter() !== 'all' || severityFilter() !== 'all') {
+                <button
+                  type="button"
+                  class="btn-reset-filters"
+                  (click)="clearFilters()"
+                >
+                  Tout réinitialiser
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Badges / Chips des filtres actifs -->
+          @if (selectedRuleSetKeys().size > 0 || activeFilter() !== 'all' || profileFilter() !== 'all' || severityFilter() !== 'all' || query()) {
+            <div class="active-chips-bar" aria-label="Filtres actifs">
+              <span class="active-chips-label">Filtres actifs :</span>
+              @if (query()) {
+                <span class="filter-chip">
+                  Recherche : "<strong>{{ query() }}</strong>"
+                  <button type="button" aria-label="Retirer la recherche" (click)="query.set('')">×</button>
+                </span>
+              }
+              @if (selectedRuleSetKeys().size > 0) {
+                <span class="filter-chip">
+                  Arborescence : <strong>{{ selectedRuleSetKeys().size }} rule-sets</strong>
+                  <button type="button" aria-label="Retirer le filtre arborescent" (click)="clearTreeSelection()">×</button>
+                </span>
+              }
+              @if (severityFilter() !== 'all') {
+                <span class="filter-chip">
+                  Sévérité : <strong>{{ severityFilter() }}</strong>
+                  <button type="button" aria-label="Retirer le filtre de sévérité" (click)="severityFilter.set('all')">×</button>
+                </span>
+              }
+              @if (profileFilter() !== 'all') {
+                <span class="filter-chip">
+                  Profil : <strong>{{ profileFilter() }}</strong>
+                  <button type="button" aria-label="Retirer le filtre profil" (click)="profileFilter.set('all')">×</button>
+                </span>
+              }
+              @if (activeFilter() !== 'all') {
+                <span class="filter-chip">
+                  État : <strong>{{ activeFilter() === 'active' ? 'Actives' : 'Inactives' }}</strong>
+                  <button type="button" aria-label="Retirer le filtre état" (click)="activeFilter.set('all')">×</button>
+                </span>
+              }
+            </div>
+          }
 
           <section class="grouping-panel" aria-label="Regroupement des résultats">
             <div class="grouping-heading">
@@ -410,7 +401,10 @@
             }
             @if (displayedRules().length === 0 && !groupingUpdating() && !groupingError()) {
               <div class="empty-state">
-                <span class="empty-glyph" aria-hidden="true">⌕</span>
+                <svg class="empty-glyph-svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.3-4.3"/>
+                </svg>
                 <strong>Aucune règle trouvée</strong>
                 <p>
                   Modifiez votre recherche ou réinitialisez les filtres pour élargir les résultats.

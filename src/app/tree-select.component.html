@@ -1,0 +1,119 @@
+<div class="tree-select-container">
+  <button
+    type="button"
+    class="tree-trigger-button"
+    [attr.aria-expanded]="isOpen()"
+    (click)="toggleOpen()"
+  >
+    <svg class="trigger-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+    </svg>
+    <span>{{ triggerButtonText() }}</span>
+    @if (selectedRuleSetKeys().size > 0) {
+      <span class="trigger-badge">{{ selectedRuleSetKeys().size }}</span>
+    }
+    <svg class="trigger-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="m6 9 6 6 6-6"/>
+    </svg>
+  </button>
+
+  @if (isOpen()) {
+    <div class="tree-popover" role="dialog" aria-label="Sélecteur Fichiers et Modules">
+      <div class="tree-popover-header">
+        <div class="tree-search-wrapper">
+          <input
+            type="search"
+            class="tree-search-input"
+            placeholder="Rechercher un fichier, module, rule-set…"
+            [value]="searchTerm()"
+            (input)="onSearchInput($event)"
+          />
+          @if (searchTerm()) {
+            <button
+              type="button"
+              class="clear-search-btn"
+              aria-label="Effacer le filtre interne"
+              (click)="searchTerm.set('')"
+            >
+              ×
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="tree-popover-body">
+        @let items = visibleFlattenedNodes();
+        @if (items.length === 0) {
+          <div class="tree-empty-search">Aucun élément ne correspond à votre recherche.</div>
+        } @else {
+          @for (item of items; track item.node.id) {
+            <div
+              class="tree-node-row"
+              [style.padding-left.px]="12 + item.node.depth * 18"
+            >
+              @if (item.node.children && item.node.children.length > 0) {
+                <button
+                  type="button"
+                  class="toggle-btn"
+                  [attr.aria-label]="isExpanded(item.node.id) ? 'Replier' : 'Déplier'"
+                  (click)="toggleExpand(item.node.id, $event)"
+                >
+                  @if (isExpanded(item.node.id)) {
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="m6 9 6 6 6-6"/>
+                    </svg>
+                  } @else {
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="m9 18 6-6-6-6"/>
+                    </svg>
+                  }
+                </button>
+              } @else {
+                <span class="toggle-spacer"></span>
+              }
+
+              <input
+                type="checkbox"
+                class="node-checkbox"
+                [checked]="isNodeChecked(item.node)"
+                [indeterminate]="isNodeIndeterminate(item.node)"
+                (change)="onNodeToggle(item.node, $event)"
+              />
+
+              <span
+                class="node-label"
+                [class.depth-0]="item.node.depth === 0"
+                [class.depth-1]="item.node.depth === 1"
+                [class.depth-2]="item.node.depth === 2"
+                (click)="onLabelClick(item.node)"
+              >
+                {{ item.node.label }}
+              </span>
+
+              @if (item.node.ruleCount !== undefined) {
+                <span class="node-count">{{ item.node.ruleCount }}</span>
+              }
+            </div>
+          }
+        }
+      </div>
+
+      <div class="tree-popover-footer">
+        <button
+          type="button"
+          class="action-link"
+          (click)="clearSelection()"
+        >
+          Effacer la sélection
+        </button>
+        <button
+          type="button"
+          class="action-link action-close"
+          (click)="isOpen.set(false)"
+        >
+          Fermer
+        </button>
+      </div>
+    </div>
+  }
+</div>

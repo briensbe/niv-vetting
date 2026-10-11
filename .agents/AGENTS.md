@@ -20,6 +20,10 @@
 - Typages stricts obligatoires (`strict: true`, aucun `any` non justifié).
 - Toujours utiliser la structure séparée en 3 fichiers : `.html`, `.css` et `.ts`.
 
+## Icônes & UI (Design System)
+- **Règle :** Ne JAMAIS utiliser d'émojis dans les interfaces utilisateur, boutons, sélecteurs ou labels.
+- **Action :** Utiliser exclusivement des icônes SVG Lucide (`@lucide/angular` ou SVG vectoriels Lucide aux dimensions et traits standardisés `stroke-width="2"`, `viewBox="0 0 24 24"`).
+
 ## Supabase / PostgreSQL & Pagination
 - **Plafond PostgREST 1000 :** Toujours paginer via `.range()` avec `paginateQuery` pour les requêtes dépassant 1000 enregistrements.
 - **Tri déterministe (Tie-Breaker) :** Ajouter obligatoirement `.order('id', { ascending: true })` AVANT tout `.range()`.

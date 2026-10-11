@@ -44,7 +44,12 @@
 
   @if (sources().length < 2) {
     <div class="empty-state compare-insufficient-sources">
-      <span class="empty-glyph" aria-hidden="true">⇄</span>
+      <svg class="empty-glyph-svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M8 3 4 7l4 4"/>
+        <path d="M4 7h16"/>
+        <path d="m16 21 4-4-4-4"/>
+        <path d="M20 17H4"/>
+      </svg>
       <strong>Comparaison impossible : au moins deux fichiers sont requis</strong>
       <p>
         Vous disposez actuellement de {{ sources().length }} fichier enregistré.
@@ -304,7 +309,9 @@
         </article>
       } @empty {
         <div class="empty-state">
-          <span class="empty-glyph" aria-hidden="true">✓</span>
+          <svg class="empty-glyph-svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
           <strong>Aucune divergence à afficher</strong>
           <p>
             Toutes les règles correspondent aux critères de filtre sélectionnés ou aucune différence n’a été détectée.

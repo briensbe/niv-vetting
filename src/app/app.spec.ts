@@ -291,16 +291,13 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R2');
   });
 
-  it('keeps a global search independent from the navigation selection', async () => {
+  it('searches globally using the hero search bar', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const operationButtons = fixture.nativeElement.querySelectorAll('.operation-link');
-    (operationButtons[0] as HTMLButtonElement).click();
-    fixture.detectChanges();
-    const search = fixture.nativeElement.querySelector('input[type="search"]') as HTMLInputElement;
+    const search = fixture.nativeElement.querySelector('.hero-search-input') as HTMLInputElement;
     search.value = 'R2';
     search.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -313,25 +310,17 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(1);
   });
 
-  it('combines operation, state, profile and behavior filters', async () => {
+  it('combines state, severity and profile filters', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const select = (label: string, value: string) => {
-      const control = fixture.nativeElement.querySelector(
-        `[aria-label="${label}"]`,
-      ) as HTMLSelectElement;
-      control.value = value;
-      control.dispatchEvent(new Event('change'));
-      fixture.detectChanges();
-    };
-
-    select('Filtrer par module', 'lcl::TRANSFER');
-    select('Filtrer par état actif', 'inactive');
-    select('Filtrer par profil', 'USER');
-    select('Filtrer par comportement de profil', 'WARNING');
+    const appInstance = fixture.componentInstance;
+    appInstance['activeFilter'].set('inactive');
+    appInstance['severityFilter'].set('WARNING');
+    appInstance['profileFilter'].set('USER');
+    fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
     await expandAllRules(fixture);
@@ -341,20 +330,21 @@ describe('App', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Bloque une opération particulière.');
   });
 
-  it('labels family filter options with the ruleset id or module name when id is missing', async () => {
+  it('filters rules using global severity without specifying a profile', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const familyOptions = Array.from(
-      (
-        fixture.nativeElement.querySelector(
-          '[aria-label="Filtrer par rule-set"]',
-        ) as HTMLSelectElement
-      ).options,
-    ).map((option) => option.textContent?.trim());
-    expect(familyOptions).toEqual(['Toutes', 'common', '(Paiements)', 'wire']);
+    const appInstance = fixture.componentInstance;
+    appInstance['severityFilter'].set('ERROR');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await expandAllRules(fixture);
+
+    expect(fixture.nativeElement.querySelectorAll('.rule-card')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('.rule-card .rule-id')?.textContent).toContain('R1');
   });
 
   it('adds and reorders grouping dimensions', async () => {
@@ -491,7 +481,7 @@ describe('App', () => {
     fixture.detectChanges();
 
     const search = fixture.nativeElement.querySelector(
-      'input[placeholder^="Rechercher un identifiant"]',
+      '.hero-search-input',
     ) as HTMLInputElement;
     search.value = 'R2';
     search.dispatchEvent(new Event('input'));

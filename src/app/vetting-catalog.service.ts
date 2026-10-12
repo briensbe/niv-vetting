@@ -201,8 +201,8 @@ export class VettingCatalogService {
   private async loadBundledFiles(): Promise<{ xmlText: string; propertiesText: string }> {
     this.bundledFilesPromise ??= firstValueFrom(
       forkJoin({
-        xmlText: this.http.get(`/vetting-data/${bundledXmlName}`, { responseType: 'text' }),
-        propertiesText: this.http.get(`/vetting-data/${bundledPropertiesName}`, {
+        xmlText: this.http.get(`vetting-data/${bundledXmlName}`, { responseType: 'text' }),
+        propertiesText: this.http.get(`vetting-data/${bundledPropertiesName}`, {
           responseType: 'text',
         }),
       }),
